@@ -1,7 +1,7 @@
 # Python C++ extension
 A template for a standalone C++ library with dependencies managed by
 [vcpkg](https://github.com/microsoft/vcpkg) accessible through Python using
-[pybind11](https://github.com/pybind/pybind11).
+[pybind11](https://github.co/pybind/pybind11).
 
 ## Why should I use this template?
 - You want to write a C++ library that can be accessed through Python.
@@ -162,4 +162,25 @@ ctest --test-dir build
 
 ```
 pytest tests
+```
+
+## Docker
+> Is it needed? It can already be isolated `vcpkg`. Docker and `vcpkg` together
+> seem to overkill
+Make sure the docker daemon is running and run
+<!-- docker build . -t ao --build-arg NUM_THREADS=`expr $(nproc) - 1` -->
+```
+docker build --pull --rm -f "Dockerfile" -t ao:latest "."
+```
+
+Then run
+
+https://docs.docker.com/engine/reference/commandline/run/
+```
+docker run --rm -it ao:latest
+```
+
+Development environment
+```
+docker run --rm --interactive --tty --volume ${pwd}:/usr/src/ao ao:latest
 ```
