@@ -163,24 +163,3 @@ ctest --test-dir build
 ```
 pytest tests
 ```
-
-## Docker
-> Is it needed? It can already be isolated `vcpkg`. Docker and `vcpkg` together
-> seem to overkill
-Make sure the docker daemon is running and run
-<!-- docker build . -t ao --build-arg NUM_THREADS=`expr $(nproc) - 1` -->
-```
-docker build --pull --rm -f "Dockerfile" -t ao:latest "."
-```
-
-Then run
-
-https://docs.docker.com/engine/reference/commandline/run/
-```
-docker run --rm -it ao:latest
-```
-
-Development environment
-```
-docker run --rm --interactive --tty --volume ${pwd}:/usr/src/ao ao:latest
-```
