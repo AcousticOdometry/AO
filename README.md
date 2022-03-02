@@ -50,7 +50,7 @@ dependencies should be easy.
 ### Test that the C++ code is working in the Python package
 Our simple project contains a `add` function that adds two numbers together.
 ```
-python -c "import pyproject; print(pyproject.add(1, 2))"
+python -c "import ao; print(ao.add(1, 2))"
 ```
 
 It also makes use of the C++ library
@@ -58,7 +58,7 @@ It also makes use of the C++ library
 in order to perform a Fast Fourier Transform over a generated signal, printing
 its results.
 ```
-python -c "import pyproject; pyproject.hello_fft()"
+python -c "import ao; ao.hello_fft()"
 ```
 
 ## Setup
