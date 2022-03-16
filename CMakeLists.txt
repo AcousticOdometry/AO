@@ -1,10 +1,6 @@
 # Installing RUNTIME_DEPENDENCIES requires at least CMake version 3.21
 cmake_minimum_required(VERSION 3.21)
 
-# Compliler flags
-set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall --std=c++17 -O3 -fPIC" )
-set( CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -Wall -O3 -fPIC" )
-
 # Set CMake to use `vcpkg` to install dependencies. I avoids the need of
 # passing it as an argument to `cmake`.
 # https://github.com/microsoft/vcpkg/blob/master/docs/users/integration.md#using-an-environment-variable-instead-of-a-command-line-option
@@ -50,6 +46,7 @@ find_package(FFTW3 CONFIG REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC 
     src/${PROJECT_NAME}/myproject.cpp
+    src/${PROJECT_NAME}/extractor.cpp
 )
 
 target_include_directories(${PROJECT_NAME} 
@@ -78,10 +75,9 @@ if(BUILD_TESTS)
     # Test.
     set(PROJECT_TESTS_NAME test_${PROJECT_NAME})
 
-    # A possible extension here is to add all `.cpp` files under the `tests`
-    # folder.
+    file(GLOB TEST_FILES tests/test_*.cpp)
     add_executable(${PROJECT_TESTS_NAME} 
-        tests/test_myproject.cpp
+        ${TEST_FILES}
     )
 
     target_link_libraries(${PROJECT_TESTS_NAME} 
