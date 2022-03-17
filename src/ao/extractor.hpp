@@ -69,7 +69,6 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
         }
     };
 
-    const std::vector<Filter> filters;
 
     static std::vector<Filter> make_filters(const T& low_Hz,
         const T& high_Hz,
@@ -83,8 +82,14 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
         // Compute characteristic frequencies equally spaced on ERB scale
         // using the canonical procedure.
         const T low_erb  = Hz_to_ERB(low_Hz);
+        std::cout << low_erb << std::endl;
         const T high_erb = Hz_to_ERB(high_Hz);
+        std::cout << high_erb << std::endl;
         const T step_erb = (high_erb - low_erb) / (num_filters - 1);
+        if (step_erb <= 0) {
+            // TODO elaborate error handling
+            throw std::invalid_argument("Invalid frequency range");
+        }
         // TODO help on this
         const T tpt = static_cast<T>((M_PI + M_PI) / sample_rate);
         for (int i = 0; i < num_filters; i++) {
@@ -102,8 +107,10 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
     }
 
     public:
+    const std::vector<Filter> filters;
+
     GammatoneFilterbank(const size_t num_samples = 1024,
-        const size_t num_features                = 12,
+        const size_t num_features                = 64,
         const int sample_rate                    = 44100,
         const T low_Hz                           = 100,
         const T high_Hz                          = 8000)
