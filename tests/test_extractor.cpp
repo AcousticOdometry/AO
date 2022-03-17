@@ -33,7 +33,7 @@ TEST(TestExtractor, GammatoneFilterBank) {
         /* num_samples */ 250,
         /* num_features */ 64,
         /* sample_rate */ 25000,
-        /* low_Hz */ 20,
+        /* low_Hz */ 50,
         /* high_Hz */ 8000);
     std::cout << "Center frequencies: ";
     for (auto& filter : extractor.filters) {
@@ -49,6 +49,8 @@ TEST(TestExtractor, GammatoneFilterBank) {
     // Allocate output and compute
     std::vector<float> output(extractor.num_features);
     extractor.compute(input, output);
+    std::transform(output.begin(), output.end(), output.begin(),
+        [](auto& o) { return std::log10(o); });
     for (auto& o : output) {
         std::cout << o << " ";
     }

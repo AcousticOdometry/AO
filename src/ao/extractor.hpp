@@ -8,7 +8,9 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#include <algorithm>
 #include <array>
+#include <numeric>
 #include <vector>
 
 namespace ao {
@@ -47,13 +49,20 @@ template <typename T> class Extractor {
 template <typename T> class GammatoneFilterbank : public Extractor<T> {
 
     // TODO help on this
+    // http://www.ee.ic.ac.uk/hp/staff/dmb/voicebox/doc/voicebox/frq2erb.html
     static T Hz_to_ERB(const T hz) {
-        return (hz > 0) ? 21.4 * log10(4.37 * hz + 1) : -1000;
+        return (hz > 0) ?
+            11.17268 * std::log(1 + 46.06538 * hz / (hz + 14678.49)) :
+            -1;
     }
 
     // TODO help on this
+    // http://www.ee.ic.ac.uk/hp/staff/dmb/voicebox/doc/voicebox/erb2frq.html
     static T ERB_to_Hz(const T erb) {
-        return (erb > 0) ? (10.0 / 21.4) * (erb - 1) / (4.37 - 1) : 0;
+        return (erb > 0) ?
+            676170.4 / std::max<T>(47.06538 - std::exp(0.0895 * erb), 0)
+                - 14678.5 :
+            0;
     }
 
 
@@ -82,9 +91,7 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
         // Compute characteristic frequencies equally spaced on ERB scale
         // using the canonical procedure.
         const T low_erb  = Hz_to_ERB(low_Hz);
-        std::cout << low_erb << std::endl;
         const T high_erb = Hz_to_ERB(high_Hz);
-        std::cout << high_erb << std::endl;
         const T step_erb = (high_erb - low_erb) / (num_filters - 1);
         if (step_erb <= 0) {
             // TODO elaborate error handling
@@ -128,6 +135,8 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
               p3i = 0.0, p4i = 0.0;
             T qcos = 1, qsin = 0; /* t=0 & q = exp(-i*tpt*t*cf)*/
 
+            std::vector<T> env(this->num_samples, 0);
+            // T senv1 = 0;
             for (int t = 0; t < this->num_samples; t++) {
                 // Filter part 1: compute p0r and p0i
                 double p0r = qcos * input[t] + filter.a[0] * p1r
@@ -153,14 +162,11 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
                 p2i = p1i;
                 p1i = p0i;
 
-                // Basilar membrane response
-                // 1. Shift up in frequency first:
-                //   (u0r+i*u0i) * exp(i*tpt*cf*t) = (u0r+i*u0i) *
-                //     (qcos + i*(-qsin))
-                // 2. Take the real part only:
-                //   bm = real(exp(j*wcf*kT).*u) * gain.
-                // TODO what about t
-                output[j] = (u0r * qcos + u0i * qsin) * filter.gain;
+                // Envelope
+                env[t] = sqrt(u0r * u0r + u0i * u0i) * filter.gain;
+                // Smoothed env by temporal integration
+                // senv1 = senv[i] = sqrt(u0r * u0r + u0i * u0i) * filter.gain
+                //     + intdecay * senv1;
 
                 // The basic idea of saving computational load:
                 //   cos(a+b) = cos(a)*cos(b) - sin(a)*sin(b)
@@ -172,6 +178,8 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
                 qcos = filter.coscf * old_qcos + filter.sincf * qsin;
                 qsin = filter.coscf * qsin - filter.sincf * old_qcos;
             }
+            output[j] =
+                std::accumulate(env.begin(), env.end(), 0.0) / env.size();
         }
     };
 };
