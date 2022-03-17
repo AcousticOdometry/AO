@@ -42,8 +42,6 @@ project(${PROJECT_NAME} VERSION ${VERSION_STRING})
 
 # It is important that the library is static in order to build its Python
 # wrapper
-find_package(FFTW3 CONFIG REQUIRED)
-
 add_library(${PROJECT_NAME} STATIC 
     src/${PROJECT_NAME}/myproject.cpp
     src/${PROJECT_NAME}/extractor.cpp
@@ -54,10 +52,9 @@ target_include_directories(${PROJECT_NAME}
         src/${PROJECT_NAME}
 )
 
-target_link_libraries(${PROJECT_NAME} 
-    PRIVATE
-        FFTW3::fftw3
-)
+# target_link_libraries(${PROJECT_NAME} 
+#     PRIVATE
+# )
 
 # ---------------------------- Build library tests ----------------------------
 # Recomended refactor into tests/CMakeLists.txt
