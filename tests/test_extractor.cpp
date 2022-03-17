@@ -4,28 +4,25 @@
 #include <gtest/gtest.h>
 
 #include <iostream>
-
-// TEST(Libgammatone, Minimal) {
-//     // Init a gammatone filter sampled at 44.1 kHz, centered at 1 kHz
-//     gammatone::filter<double> filter(44100, 1000);
-
-//     // An input signal (here 1000 times zero, silly but minimal)
-//     std::vector<double> input(1000, 0.0);
-
-//     // Init an output buffer to store the filter response
-//     std::vector<double> output(1000);
-
-//     // Compute the output signal from input
-//     filter.compute_range(input.begin(), input.end(), output.begin());
-
-//     std::cout << "Output: " << std::endl;
-//     for (auto& o : output) {
-//         std::cout << o << " ";
-//     }
-//     std::cout << std::endl;
-// }
+#include <algorithm>
+#include <ctime>
 
 TEST(TestExtractor, GammatoneFilterBank) {
     auto extractor = ao::extractor::GammatoneFilterbank<int>();
     std::cout << extractor.num_samples << std::endl;
+    // Random input
+    std::srand(unsigned(std::time(nullptr)));
+    std::vector<int> input(extractor.num_samples);
+    std::generate(input.begin(), input.end(), std::rand);
+    // for (auto& i : input) {
+    //     std::cout << i << " ";
+    // }
+    // std::cout << std::endl;
+    // Allocate output and compute
+    std::vector<int> output(extractor.num_features);
+    extractor.compute(input, output);
+    for (auto& o : output) {
+        std::cout << o << " ";
+    }
+    std::cout << std::endl;
 }

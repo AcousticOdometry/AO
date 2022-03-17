@@ -1,4 +1,5 @@
 #include "myproject.hpp"
+#include "extractor.hpp"
 
 #include <pybind11/pybind11.h>
 
@@ -16,7 +17,9 @@ PYBIND11_MODULE(_python_api, m) {
     )pbdoc";
 
     m.def("add", &add, "Add two numbers together");
-    m.def("hello_fft", &hello_fft, "Tests a Fast Fourier Transform");
+    py::class_<GammatoneFilterbank<float>>(m, "GammatoneFilterbank")
+        .def(py::init<size_t, size_t, int, float, float>())
+        .def("compute", &GammatoneFilterbank<float>::compute);
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
