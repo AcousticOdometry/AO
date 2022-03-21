@@ -1,6 +1,7 @@
 import ao
 
 import wave
+import math
 import tempfile
 import requests
 import numpy as np
@@ -32,8 +33,9 @@ def test_extractor():
     frame_length = 10  # [ms]
     num_samples = int(np.ceil(frame_length / 1000 * fs))  # samples per frame
     _data = np.mean(data,
-                    axis=1)[(2 *
-                             num_samples):(3 * num_samples
-                                           )].astype(int).astype(str).tolist()
-    print(', '.join(_data))
+                    axis=1)[(2 * num_samples):(3 * num_samples)].astype(int)
+    print(', '.join(_data.astype(str).tolist()))
     print(num_samples)
+    extractor = ao.GammatoneFilterbank(250, 64, 25000, 50, 8000)
+    output = extractor(_data)
+    print([math.log10(x) for x in output])

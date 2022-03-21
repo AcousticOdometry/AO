@@ -47,12 +47,35 @@ TEST(TestExtractor, GammatoneFilterBank) {
     // }
     // std::cout << std::endl;
     // Allocate output and compute
-    std::vector<float> output(extractor.num_features);
-    extractor.compute(input, output);
+    std::vector<float> output  = extractor.compute(input);
     std::transform(output.begin(), output.end(), output.begin(),
         [](auto& o) { return std::log10(o); });
     for (auto& o : output) {
         std::cout << o << " ";
     }
     std::cout << std::endl;
+}
+
+/**
+ * @brief Extractors overload the feature "compute" method with several
+ * signatures. Test that all of them work and return the same values.
+ * 
+ */
+TEST(TestExtractor, ComputeOverloads) {
+    // TODO parametrize with different extractors
+    auto extractor = ao::extractor::GammatoneFilterbank<float>(
+        /* num_samples */ 250,
+        /* num_features */ 64,
+        /* sample_rate */ 25000,
+        /* low_Hz */ 50,
+        /* high_Hz */ 8000);
+    // TODO parametrize input
+    std::vector<float> input = example_input;
+    std::vector<float> output(extractor.num_features);
+    // compute(const std::vector<T>& input, std::vector<T>& output)
+    ASSERT_NO_THROW(extractor.compute(input, output));
+    // compute(const std::vector<T>& input)
+    EXPECT_EQ(output, extractor.compute(input));
+    // operator()
+    EXPECT_EQ(output, extractor(input));
 }

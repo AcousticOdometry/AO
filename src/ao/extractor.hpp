@@ -13,6 +13,9 @@
 #include <numeric>
 #include <vector>
 
+// Remove
+#include <iostream>
+
 namespace ao {
 namespace extractor {
 
@@ -32,6 +35,16 @@ template <typename T> class Extractor {
 
     virtual void
     compute(const std::vector<T>& input, std::vector<T>& output) = 0;
+
+    virtual std::vector<T> compute(const std::vector<T>& input) {
+        std::vector<T> output(this->num_features);
+        compute(input, output);
+        return output;
+    }
+
+    virtual std::vector<T> operator()(const std::vector<T>& input) {
+        return compute(input);
+    }
 };
 
 // This gammatone filter is based on the implementation by Ning Ma from
@@ -126,7 +139,8 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
         std::cout << "Constructing GammatoneFilterbank" << std::endl;
     }
 
-    void compute(const std::vector<T>& input, std::vector<T>& output) {
+    using Extractor::compute;
+    void compute(const std::vector<T>& input, std::vector<T>& output) override {
         for (int j = 0; j < this->num_features; j++) {
             Filter filter = filters[j];
 

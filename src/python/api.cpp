@@ -1,7 +1,7 @@
-#include "myproject.hpp"
 #include "extractor.hpp"
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
@@ -16,10 +16,11 @@ PYBIND11_MODULE(_python_api, m) {
         $ python -c "import myproject; help(myproject)"
     )pbdoc";
 
-    m.def("add", &add, "Add two numbers together");
-    py::class_<GammatoneFilterbank<float>>(m, "GammatoneFilterbank")
-        .def(py::init<size_t, size_t, int, float, float>())
-        .def("compute", &GammatoneFilterbank<float>::compute);
+    py::class_<ao::extractor::GammatoneFilterbank<double>>(
+        m, "GammatoneFilterbank")
+        .def(py::init<size_t, size_t, int, double, double>())
+        .def("__call__",
+            &ao::extractor::GammatoneFilterbank<double>::operator());
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
