@@ -4,6 +4,7 @@
     "description": "Acoustic Odometry library",
     "dependencies": [
         "pybind11",
+        "fmt",
         "gtest"
     ]
 }

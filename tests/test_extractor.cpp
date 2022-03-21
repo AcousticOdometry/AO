@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <complex>
 #include <ctime>
 #include <iostream>
 
@@ -28,6 +29,26 @@ std::vector<float> example_input{ 582, 571, 561, 557, 555, 539, 536, 527, 502,
     -579, -553, -534, -518, -516, -521, -523, -514, -503, -487, -479, -477,
     -483, -487, -495, -489, -486, -481, -457, -452 };
 
+std::vector<float> example_input2{ 2559, 2728, 2890, 2935, 3037, 3135, 3295,
+    3382, 3388, 3551, 3553, 3456, 3308, 3094, 2916, 2772, 2608, 2290, 2132,
+    2120, 2263, 2374, 2268, 2007, 1554, 1294, 1002, 763, 596, 464, 591, 328,
+    -21, -521, -1096, -1288, -1339, -1260, -1419, -1543, -1467, -1476, -1384,
+    -1480, -1649, -2024, -2177, -1926, -1756, -1634, -1581, -1839, -2124, -2109,
+    -1885, -1707, -1584, -1506, -1412, -1238, -929, -610, -616, -833, -830,
+    -648, -385, -105, 15, -50, -166, -153, -61, -41, 14, 163, 279, 372, 474,
+    535, 527, 459, 419, 391, 375, 409, 422, 395, 248, 128, 54, -64, -168, -225,
+    -213, -207, -187, -200, -339, -470, -515, -499, -526, -588, -632, -703,
+    -749, -782, -861, -960, -1066, -1077, -1045, -1019, -989, -1022, -1066,
+    -1158, -1142, -1075, -1021, -940, -945, -951, -998, -978, -961, -1073,
+    -1045, -1031, -1055, -975, -912, -860, -843, -745, -678, -735, -695, -672,
+    -605, -565, -525, -518, -645, -606, -598, -605, -573, -624, -617, -608,
+    -519, -433, -460, -462, -482, -510, -500, -446, -444, -517, -555, -604,
+    -650, -659, -624, -626, -636, -574, -495, -469, -453, -386, -379, -365,
+    -295, -252, -205, -143, -13, 60, 101, 178, 264, 370, 493, 632, 730, 808,
+    972, 1111, 1255, 1421, 1546, 1656, 1788, 1954, 2076, 2233, 2396, 2500, 2647,
+    2824, 3008, 3135, 3287, 3411, 3509, 3619, 3771, 3906, 4002, 4149, 4281,
+    4390, 4518, 4591, 4598 };
+
 TEST(TestExtractor, GammatoneFilterBank) {
     auto extractor = ao::extractor::GammatoneFilterbank<float>(
         /* num_samples */ 250,
@@ -41,12 +62,13 @@ TEST(TestExtractor, GammatoneFilterBank) {
     }
     std::cout << std::endl;
     // Example input
-    std::vector<float> input = example_input;
+    std::vector<float> input = example_input2;
     // for (auto& i : input) {
     //     std::cout << i << " ";
     // }
     // std::cout << std::endl;
-    // Allocate output and compute
+    std::vector<float> output2 = extractor.compute(input);
+    std::vector<float> output3 = extractor.compute(input);
     std::vector<float> output  = extractor.compute(input);
     std::transform(output.begin(), output.end(), output.begin(),
         [](auto& o) { return std::log10(o); });
@@ -59,7 +81,7 @@ TEST(TestExtractor, GammatoneFilterBank) {
 /**
  * @brief Extractors overload the feature "compute" method with several
  * signatures. Test that all of them work and return the same values.
- * 
+ *
  */
 TEST(TestExtractor, ComputeOverloads) {
     // TODO parametrize with different extractors

@@ -20,7 +20,8 @@ PYBIND11_MODULE(_python_api, m) {
         m, "GammatoneFilterbank")
         .def(py::init<size_t, size_t, int, double, double>())
         .def("__call__",
-            &ao::extractor::GammatoneFilterbank<double>::operator());
+            &ao::extractor::GammatoneFilterbank<double>::operator(),
+            py::return_value_policy::move);
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);

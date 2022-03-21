@@ -39,6 +39,7 @@ project(${PROJECT_NAME} VERSION ${VERSION_STRING})
 
 # ------------------------- Build the project library -------------------------
 # Recomended refactor into src/${PROJECT_NAME}/CMakeLists.txt
+find_package(fmt CONFIG REQUIRED)
 
 # It is important that the library is static in order to build its Python
 # wrapper
@@ -52,9 +53,10 @@ target_include_directories(${PROJECT_NAME}
         src/${PROJECT_NAME}
 )
 
-# target_link_libraries(${PROJECT_NAME} 
-#     PRIVATE
-# )
+target_link_libraries(${PROJECT_NAME} 
+    PRIVATE
+        fmt::fmt
+)
 
 # ---------------------------- Build library tests ----------------------------
 # Recomended refactor into tests/CMakeLists.txt
