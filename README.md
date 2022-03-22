@@ -1,24 +1,7 @@
-# Python C++ extension
-A template for a standalone C++ library with dependencies managed by
+# Acoustic Odometry
+A standalone C++ library with dependencies managed by
 [vcpkg](https://github.com/microsoft/vcpkg) accessible through Python using
 [pybind11](https://github.co/pybind/pybind11).
-
-## Why should I use this template?
-- You want to write a C++ library that can be accessed through Python.
-- You want to use `cmake` to build your C++ code.
-- You want to use `pybind11` to expose your C++ library as a Python module.
-- You want to use some C++ dependencies and manage them with `vcpkg`. Otherwise
-  you should check other [scikit-build sample
-  projects](https://github.com/scikit-build/scikit-build-sample-projects).
-- You are not specially concerned about build and install optimizations, it is
-  not a problem if they are long running.
-
-If you want to distribute your extension using `pip` or `conda` and you mind
-that your users take a long time to install it, then it might be better to
-build some binaries instead of optimizing the build process. This template
-might still be useful for you as it has workflows for building python wheels
-with
-[cuibuildwheel](https://github.com/pypa/cibuildwheel).
 
 
 ## Example usage
@@ -38,7 +21,7 @@ source ./venv/bin/activate
 
 ### Install this project
 ```
-pip install git+https://github.com/esdandreu/python-extension-cpp
+pip install git+https://github.com/AcousticOdometry/AO
 ```
 It will take a while to build as it will build the C++ dependencies as well,
 but it will work. It is definitely not the most optimal way of installing a
@@ -48,18 +31,7 @@ this allows a fast development environment where adding or removing C++
 dependencies should be easy.
 
 ### Test that the C++ code is working in the Python package
-Our simple project contains a `add` function that adds two numbers together.
-```
-python -c "import ao; print(ao.add(1, 2))"
-```
-
-It also makes use of the C++ library
-[fftw3](https://github.com/FFTW/fftw3.git) that is available through `vcpkg`
-in order to perform a Fast Fourier Transform over a generated signal, printing
-its results.
-```
-python -c "import ao; ao.hello_fft()"
-```
+TODO
 
 ## Setup
 ### Install the requirements
@@ -163,3 +135,8 @@ ctest --test-dir build
 ```
 pytest
 ```
+
+## Development
+
+We try to use the following style guide for `pybind11`
+https://developer.lsst.io/pybind11/style.html

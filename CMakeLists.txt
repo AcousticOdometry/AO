@@ -126,6 +126,7 @@ if(BUILD_PYTHON_API)
     pybind11_add_module(${PROJECT_PYTHON_API_NAME} 
         MODULE 
             src/python/api.cpp
+            src/python/_extractor.cpp
     )
 
     target_link_libraries(${PROJECT_PYTHON_API_NAME} 
