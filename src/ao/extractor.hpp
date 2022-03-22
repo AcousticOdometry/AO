@@ -57,7 +57,7 @@ class Extractor {
 // original algorithm from Martin Cooke's Ph.D thesis (Cooke, 1993) using
 // the base-band impulse invariant transformation. This implementation is
 // highly efficient in that a mathematical rearrangement is used to
-// significantly reduce the cost of computing complex exponentials. For
+// significantly reduce the cost of computing complex exponential. For
 // more detail on this implementation see
 //   http://www.dcs.shef.ac.uk/~ning/resources/gammatone/
 //
