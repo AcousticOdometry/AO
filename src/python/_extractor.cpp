@@ -1,12 +1,11 @@
+#include "extractor.hpp"
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-
-#include "extractor.hpp"
 
 namespace py = pybind11;
 using namespace py::literals;
 using namespace ao::extractor;
-
 
 class PyExtractor : public Extractor<double> {
     public:
@@ -30,13 +29,15 @@ void declareExtractor(py::module& mod) {
 
     py::class_<Extractor<double>, PyExtractor>(modExtractor, "Extractor")
         .def(py::init<size_t, size_t, int>(), "num_samples"_a = 1024,
-            "num_features"_a = 64, "sample_rate"_a = 44100);
+            "num_features"_a = 64, "sample_rate"_a = 44100)
+        .def("__call__", &GammatoneFilterbank<double>::operator(), "input"_a,
+            py::return_value_policy::move);
 
     py::class_<GammatoneFilterbank<double>, Extractor<double>>(
         modExtractor, "GammatoneFilterbank")
         .def(py::init<size_t, size_t, int, double, double>(),
             "num_samples"_a = 1024, "num_features"_a = 64,
             "sample_rate"_a = 44100, "low_Hz"_a = 50, "high_Hz"_a = 8000)
-        .def("__call__", &GammatoneFilterbank<double>::operator(), "input"_a,
-            py::return_value_policy::move);
+        .def_readonly("filters", &GammatoneFilterbank<double>::filters);
+    PYBIND11_NUMPY_DTYPE(&GammatoneFilterbank<double>::Filter, x, y);
 }

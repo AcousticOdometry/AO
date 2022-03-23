@@ -90,9 +90,10 @@ setup(
         ],
     # Extra setuptools keywords:
     # https://setuptools.pypa.io/en/latest/userguide/keywords.html
+    install_requires=["requests", "numpy", "matplotlib"],
     python_requires=">=3.7",
     # When adding `[test]` to your `pip install` command you can install the
     # extra dependencies associated with testing. Example `pip install .[test]`
     # https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies
-    extras_require={"test": ["pytest", "requests", "numpy"]},
+    extras_require={"test": ["pytest"]},
 )

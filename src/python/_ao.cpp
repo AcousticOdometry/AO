@@ -7,7 +7,7 @@ namespace py = pybind11;
 
 void declareExtractor(py::module& mod);
 
-PYBIND11_MODULE(_python_api, mod) {
+PYBIND11_MODULE(_ao, mod) {
     mod.doc() = R"pbdoc(
         Python wrapper for `myproject`.
 

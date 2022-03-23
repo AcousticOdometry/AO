@@ -1,12 +1,12 @@
 import ao
 
 import math
+import warnings
 import numpy as np
 
 # TODO test overide Extractor
 
 # TODO test help(Extractor)
-
 
 def test_extractor():
     audio_url = (
@@ -20,8 +20,14 @@ def test_extractor():
     padded_data = np.append(
         data, np.zeros(num_frames * num_samples - data.size)
         )
-    extractor = ao.GammatoneFilterbank(num_samples, 64, fs)
+    extractor = ao.extractor.GammatoneFilterbank(num_samples, 64, fs)
     for index in range(num_frames):
         batch = padded_data[index * num_samples:(index + 1) * num_samples]
         output = extractor(batch)
         print([math.log10(x) for x in output])
+
+def test_gammatone_filterbank():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        extractor = ao.extractor.GammatoneFilterbank()
+        print(extractor.filters)

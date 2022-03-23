@@ -120,12 +120,12 @@ if(BUILD_PYTHON_API)
     # of the `__init__.py` file and when calling PYBIND11_MODULE() in the
     # python API code. This could be avoided with some code generation but it
     # would be too complicated for this simple example.
-    set(PROJECT_PYTHON_API_NAME _python_api)
+    set(PROJECT_PYTHON_API_NAME _ao)
 
     # This function behaves very much like CMake’s builtin `add_library`
     pybind11_add_module(${PROJECT_PYTHON_API_NAME} 
         MODULE 
-            src/python/api.cpp
+            src/python/_ao.cpp
             src/python/_extractor.cpp
     )
 
