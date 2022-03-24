@@ -1,5 +1,6 @@
 # Installing RUNTIME_DEPENDENCIES requires at least CMake version 3.21
 cmake_minimum_required(VERSION 3.21)
+set(CMAKE_CXX_STANDARD 20)
 
 # Set CMake to use `vcpkg` to install dependencies. I avoids the need of
 # passing it as an argument to `cmake`.
@@ -44,7 +45,6 @@ find_package(fmt CONFIG REQUIRED)
 # It is important that the library is static in order to build its Python
 # wrapper
 add_library(${PROJECT_NAME} STATIC 
-    src/${PROJECT_NAME}/myproject.cpp
     src/${PROJECT_NAME}/extractor.cpp
 )
 
