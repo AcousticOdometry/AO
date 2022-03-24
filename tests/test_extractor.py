@@ -6,8 +6,6 @@ import numpy as np
 
 # TODO test overide Extractor
 
-# TODO test help(Extractor)
-
 def test_extractor():
     audio_url = (
         r"https://staffwww.dcs.shef.ac.uk/people/N.Ma/resources"
@@ -24,10 +22,13 @@ def test_extractor():
     for index in range(num_frames):
         batch = padded_data[index * num_samples:(index + 1) * num_samples]
         output = extractor(batch)
-        print([math.log10(x) for x in output])
+        # TODO check output size and that there are no NaN or Inf
 
 def test_gammatone_filterbank():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         extractor = ao.extractor.GammatoneFilterbank()
-        print(extractor.filters)
+        for filter in extractor.filters:
+            assert isinstance(filter.cf, float)
+            assert isinstance(filter.gain, float)
+            assert isinstance(filter.a, list)

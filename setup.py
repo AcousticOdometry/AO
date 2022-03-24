@@ -57,16 +57,10 @@ with open(PROJECT_SOURCE_DIR / "vcpkg.json") as f:
 # be determined by the name of the folder that contains an `__init__.py` file.
 # In this repository, python packages must be placed under path defined by
 # `python_packages_root`.
-# ! In order to change the name of the package, the name of the folder that
-# ! contains the `__init__.py` file must be changed.
 python_packages_root = "src/python"
 packages = find_packages(python_packages_root)
-if len(packages) > 1:
-    warnings.warn(
-        "This extension is not supposed to have more than one package. The "
-        f"compiled C++ code will be placed only in `{packages[0]}`. The "
-        f"rest of packages {packages[1:]} won't have access to C++ code."
-        )
+# ! The only package with access to the compiled C++ library is `packages[0]`,
+# ! other packages have no direct access to compiled C++ code.
 
 setup(
     # Python package information, can be edited

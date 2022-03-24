@@ -65,6 +65,21 @@ def gammatonegram(
         extract=extract,
         ax=ax,
         )
+    # Change feature axis
+    center_frequencies = [f.cf for f in extract.filters]
+    yticks = []
+    yticklabels = []
+    for ytick in ax.get_yticks().astype(int).tolist():
+        try:
+            yticklabels.append(f"{center_frequencies[ytick]:.1E}")
+            yticks.append(ytick)
+        except IndexError:
+            yticklabels.append(f"{center_frequencies[-1]:.1E}")
+            yticks.append(len(center_frequencies))
+            break
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels)
+    ax.set_ylabel("Center Frequency [Hz]")
     return plot, ax
 
 
@@ -125,19 +140,21 @@ def features(
     num_frames = math.ceil(data.size / frame_samples)
     data = np.append(data, np.zeros(num_frames * frame_samples - data.size))
     # Extract features
-    features = []
-    for index in range(num_frames):
-        batch = data[index * frame_samples:(index + 1) * frame_samples]
+    features = np.empty((num_features, num_frames))
+    for frame in range(num_frames):
+        batch = data[frame * frame_samples:(frame + 1) * frame_samples]
         batch_features = extract(batch)
-        if compression:
-            features.append(map(compression, batch_features))
-        else:
-            features.append(batch_features)
+        features[:, frame] = batch_features
+    # Compress features
+    if compression:
+        features = np.vectorize(compression)(features)
     # Plot features
     if not ax:
         _, ax = plt.subplots()
-    features = list(map(list, zip(*features)))  # Transpose
-    plot = ax.pcolormesh(features, cmap='jet')
+    plot = ax.pcolormesh(
+        np.flip(features, axis=0), # Flip rows, top should be latest feature
+        cmap='jet',
+        )
     # Add feature axis
     ax.set_ylabel("Features [-]")
     # Add time axis
