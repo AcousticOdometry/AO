@@ -1,3 +1,4 @@
+#include "extractor.cpp"
 #include "extractor.hpp"
 
 // #include <gammatone/filter.hpp>
@@ -8,6 +9,7 @@
 #include <ctime>
 #include <iostream>
 
+// TODO propper fixtures
 std::vector<float> example_input{ 582, 571, 561, 557, 555, 539, 536, 527, 502,
     467, 421, 380, 337, 296, 257, 211, 172, 127, 80, 35, -7, -66, -115, -160,
     -212, -256, -316, -366, -419, -468, -514, -558, -599, -631, -658, -688,
@@ -29,7 +31,7 @@ std::vector<float> example_input{ 582, 571, 561, 557, 555, 539, 536, 527, 502,
     -579, -553, -534, -518, -516, -521, -523, -514, -503, -487, -479, -477,
     -483, -487, -495, -489, -486, -481, -457, -452 };
 
-std::vector<float> example_input2{ 2559, 2728, 2890, 2935, 3037, 3135, 3295,
+std::vector<float> invalid_input{ 2559, 2728, 2890, 2935, 3037, 3135, 3295,
     3382, 3388, 3551, 3553, 3456, 3308, 3094, 2916, 2772, 2608, 2290, 2132,
     2120, 2263, 2374, 2268, 2007, 1554, 1294, 1002, 763, 596, 464, 591, 328,
     -21, -521, -1096, -1288, -1339, -1260, -1419, -1543, -1467, -1476, -1384,
@@ -62,19 +64,16 @@ TEST(TestExtractor, GammatoneFilterBank) {
     }
     std::cout << std::endl;
     // Example input
-    std::vector<float> input = example_input2;
-    // for (auto& i : input) {
-    //     std::cout << i << " ";
+    std::vector<float> input = example_input;
+    std::vector<float> output = extractor.compute(input);
+    EXPECT_EQ(output, extractor.compute(input)); // Test second execution
+    // std::transform(output.begin(), output.end(), output.begin(),
+    //     [](auto& o) { return std::log10(o); });
+    // for (auto& o : output) {
+    //     std::cout << o << " ";
     // }
-    // std::cout << std::endl;
-    std::vector<float> output2 = extractor.compute(input);
-    std::vector<float> output3 = extractor.compute(input);
-    std::vector<float> output  = extractor.compute(input);
-    std::transform(output.begin(), output.end(), output.begin(),
-        [](auto& o) { return std::log10(o); });
-    for (auto& o : output) {
-        std::cout << o << " ";
-    }
+    // Invalid input
+    EXPECT_THROW(extractor.compute(invalid_input), std::runtime_error);
     std::cout << std::endl;
 }
 
