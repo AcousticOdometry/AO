@@ -23,12 +23,6 @@ namespace extractor {
 template <Arithmetic T>
 void GammatoneFilterbank<T>::compute(
     const std::vector<T>& input, std::vector<T>& output) {
-    if (input.size() != this->num_samples) {
-        throw std::runtime_error(fmt::format(
-            "Input signal must be of length {}. Instead it is "
-            "of length {}.",
-            this->num_samples, input.size()));
-    }
     for (int j = 0; j < this->num_features; j++) {
         GammatoneFilterbank<T>::Filter filter = this->filters[j];
 

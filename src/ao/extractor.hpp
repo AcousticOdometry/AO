@@ -20,13 +20,25 @@
 namespace ao {
 namespace extractor {
 
-// Base class for all extractors
+/**
+ * @brief Base abstract class for Extractors
+ *
+ * @tparam T Input signal type
+ */
 template <Arithmetic T> class Extractor {
     public:
     const size_t num_samples;  // Number of samples in the input signal
     const size_t num_features; // Number of features to extract
     const int sample_rate;     // Samples per second of the input signal [Hz]
 
+    /**
+     * @brief Construct a new Extractor object.
+     *
+     * @param num_samples Number of samples needed to extract a vector of
+     * features.
+     * @param num_features Number of features per vector.
+     * @param sample_rate Samples per second of the input signal.
+     */
     Extractor(
         const size_t& num_samples  = 1024,
         const size_t& num_features = 12,
@@ -34,23 +46,64 @@ template <Arithmetic T> class Extractor {
     : num_samples(num_samples), num_features(num_features),
       sample_rate(sample_rate) {}
 
+    /**
+     * @brief Destroy the Extractor object.
+     *
+     */
     virtual ~Extractor() {}
 
-    virtual void
-    compute(const std::vector<T>& input, std::vector<T>& output) = 0;
-
+    /**
+     * @brief Computes a vector of feature from the input signal. It ensures
+     * that input and output have appropiate size.
+     *
+     * @param input A vector of samples that compose a signal.
+     * @throw std::invalid_argument if the input signal size is different than
+     * `num_samples`.
+     * @return std::vector<T> Vector of features with size `num_features`.
+     */
     virtual std::vector<T> compute(const std::vector<T>& input) {
+        if (input.size() != this->num_samples) {
+            throw std::invalid_argument(fmt::format(
+                "Input signal must be of length {}. Instead it is "
+                "of length {}.",
+                this->num_samples, input.size()));
+        }
         std::vector<T> output(this->num_features);
         compute(input, output);
         return output;
     }
 
+    /**
+     * @brief Wrapper of std::vector<T> compute(const std::vector<T>& input)
+     *
+     * @param input A vector of samples that compose a signal.
+     * @throw std::invalid_argument if the input signal size is different than
+     * `num_samples`.
+     * @return std::vector<T> Vector of features with size `num_features`.
+     */
     virtual std::vector<T> operator()(const std::vector<T>& input) {
         return compute(input);
     }
+
+    protected:
+    /**
+     * @brief Compute the feature extraction of an input signal into `output`
+     * argument. This method must be implemented by each derived extractor.
+     *
+     * @param input Input signal, its size must be equal to `num_samples`.
+     * @param output Output feature vector, its size must be equal to
+     * `num_features`.
+     */
+    virtual void
+    compute(const std::vector<T>& input, std::vector<T>& output) = 0;
 };
 
-
+/**
+ * @brief Extractor based on gammatone filters.
+ * https://en.wikipedia.org/wiki/Gammatone_filter
+ *
+ * @tparam T Input signal type
+ */
 template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
     public:
     struct Filter {
@@ -79,23 +132,55 @@ template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
 
     using Extractor<T>::compute;
 
-    void compute(const std::vector<T>& input, std::vector<T>& output);
+    protected:
+    /**
+     * @brief Compute the `filters` response to an input signal.
+     *
+     * @param input Input signal with size `num_samples`.
+     * @param output Output feature vector of size `num_features`.
+     */
+    void compute(const std::vector<T>& input, std::vector<T>& output) override;
 
-    private:
-    // TODO help on this
+    /**
+     * @brief Converts a frequency in Hz to its Equivalent Rectangular
+     * Bandwidth.
+     *
+     * @param hz Frequency in Hz.
+     * @return T Equivalent Rectangular Bandwidth.
+     */
     static T Hz_to_ERB(const T hz);
 
-    // TODO help on this
+    /**
+     * @brief Converts an Equivalent Rectangular Bandwidth to its frequency in
+     * Hz.
+     *
+     * @param erb Equivalent Rectangular Bandwidth.
+     * @return T Frequency in Hz.
+     */
     static T ERB_to_Hz(const T erb);
 
+    /**
+     * @brief Builds a set of ao::extractor::GammatoneFilterbank::Filter with
+     * center frequencies uniformly distributed between `low_Hz` and `high_Hz`
+     * accross the Equivalent Rectangular Bandwith (ERB) scale.
+     *
+     * @param low_Hz Lowest filter center frequency in Hz.
+     * @param high_Hz Highest filter center frequency in Hz.
+     * @param num_filters Size of the output set.
+     * @param sample_rate Samples per second of signals to be processed by the
+     * filter.
+     * @param bandwith_correction ERB bandwidth correction for the 4th order
+     * filter. Defaults to 1.019.
+     * @return std::vector<Filter> Set of filters with center frequencies
+     * uniformly distributed between `low_Hz` and `high_Hz` accross the ERB
+     * scale.
+     */
     static std::vector<Filter> make_filters(
         const T& low_Hz,
         const T& high_Hz,
         const size_t& num_filters,
         const int& sample_rate,
-        const T bandwith_correction = 1.019 // ERB bandwidth correction for the
-                                            // 4th order filter
-    );
+        const T bandwith_correction = 1.019);
 };
 
 } // namespace extractor

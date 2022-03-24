@@ -73,7 +73,7 @@ TEST(TestExtractor, GammatoneFilterBank) {
     //     std::cout << o << " ";
     // }
     // Invalid input
-    EXPECT_THROW(extractor.compute(invalid_input), std::runtime_error);
+    EXPECT_THROW(extractor.compute(invalid_input), std::invalid_argument);
     std::cout << std::endl;
 }
 
@@ -92,11 +92,7 @@ TEST(TestExtractor, ComputeOverloads) {
         /* high_Hz */ 8000);
     // TODO parametrize input
     std::vector<float> input = example_input;
-    std::vector<float> output(extractor.num_features);
-    // compute(const std::vector<T>& input, std::vector<T>& output)
-    ASSERT_NO_THROW(extractor.compute(input, output));
-    // compute(const std::vector<T>& input)
-    EXPECT_EQ(output, extractor.compute(input));
+    std::vector<float> output = extractor.compute(input);
     // operator()
     EXPECT_EQ(output, extractor(input));
 }
