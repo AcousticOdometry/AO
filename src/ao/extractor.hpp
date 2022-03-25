@@ -61,16 +61,16 @@ template <Arithmetic T> class Extractor {
      * `num_samples`.
      * @return std::vector<T> Vector of features with size `num_features`.
      */
-    virtual std::vector<T> compute(const std::vector<T>& input) {
+    virtual std::vector<T> compute(const std::vector<T>& input) const {
         if (input.size() != this->num_samples) {
             throw std::invalid_argument(fmt::format(
                 "Input signal must be of length {}. Instead it is "
                 "of length {}.",
                 this->num_samples, input.size()));
         }
-        std::vector<T> output(this->num_features);
-        compute(input, output);
-        return output;
+        std::vector<T> features(this->num_features);
+        this->compute(input, features);
+        return features;
     }
 
     /**
@@ -81,8 +81,8 @@ template <Arithmetic T> class Extractor {
      * `num_samples`.
      * @return std::vector<T> Vector of features with size `num_features`.
      */
-    virtual std::vector<T> operator()(const std::vector<T>& input) {
-        return compute(input);
+    virtual std::vector<T> operator()(const std::vector<T>& input) const {
+        return this->compute(input);
     }
 
     protected:
@@ -91,11 +91,11 @@ template <Arithmetic T> class Extractor {
      * argument. This method must be implemented by each derived extractor.
      *
      * @param input Input signal, its size must be equal to `num_samples`.
-     * @param output Output feature vector, its size must be equal to
+     * @param features Output feature vector, its size must be equal to
      * `num_features`.
      */
     virtual void
-    compute(const std::vector<T>& input, std::vector<T>& output) = 0;
+    compute(const std::vector<T>& input, std::vector<T>& features) const = 0;
 };
 
 /**
@@ -106,21 +106,62 @@ template <Arithmetic T> class Extractor {
  */
 template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
     public:
-    struct Filter {
-        // TODO add functionality here
-
+    class Filter {
+        public:
         const T cf;               // Center frequency
-        const T coscf;            // Cosine of the center frequency
-        const T sincf;            // Sine of the center frequency
         const std::array<T, 5> a; // Filter coefficients
         const T gain;
 
+        private:
+        const T coscf; // Cosine of the center frequency
+        const T sincf; // Sine of the center frequency
+
+        public:
+        /**
+         * @brief Construct a new Filter object. It is important to highlight
+         * that filters do not have access to the parent filterbank. They do
+         * not mind the number of samples or sample rate once they are built.
+         *
+         * @param cf Center frequency
+         * @param gain Gain
+         * @param a Array of filter coefficients
+         */
         Filter(const T cf, const T gain, const std::array<T, 5> a)
-        : cf(cf), a(a), gain(gain), coscf(std::cos(cf)), sincf(std::sin(cf)) {}
+        : cf(cf), coscf(std::cos(cf)), sincf(std::sin(cf)), a(a), gain(gain) {}
+
+        /**
+         * @brief Wrapper around `Filter::compute`.
+         *
+         * @param input Vector of samples.
+         * @return T Filter response.
+         */
+        T operator()(const std::vector<T>& input) const {
+            T feature;
+            this->compute(input, feature);
+            return feature;
+        }
+
+        private:
+        /**
+         * @brief Compute the filter response to a vector of samples.
+         *
+         * @param input Vector of samples.
+         * @param response Filter response.
+         */
+        void compute(const std::vector<T>& input, T& response) const;
     };
 
-    const std::vector<Filter> filters;
+    const std::vector<Filter> filters; // Vector of filters
 
+    /**
+     * @brief Construct a new Gammatone Filterbank object
+     *
+     * @param num_samples Number of samples per input signal.
+     * @param num_features Number of filters to use in the filterbank.
+     * @param sample_rate Samples per second of the input signal in Hz.
+     * @param low_Hz Lowest filter center frequency in Hz.
+     * @param high_Hz Highest filter center frequency in Hz.
+     */
     GammatoneFilterbank(
         const size_t num_samples   = 1024,
         const size_t& num_features = 64,
@@ -130,16 +171,17 @@ template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
     : Extractor<T>(num_samples, num_features, sample_rate),
       filters(make_filters(low_Hz, high_Hz, num_features, sample_rate)) {}
 
-    using Extractor<T>::compute;
+    using Extractor<T>::compute; // Inherit `compute` from `Extractor`
 
     protected:
     /**
      * @brief Compute the `filters` response to an input signal.
      *
      * @param input Input signal with size `num_samples`.
-     * @param output Output feature vector of size `num_features`.
+     * @param features Output feature vector of size `num_features`.
      */
-    void compute(const std::vector<T>& input, std::vector<T>& output) override;
+    void compute(
+        const std::vector<T>& input, std::vector<T>& features) const override;
 
     /**
      * @brief Converts a frequency in Hz to its Equivalent Rectangular
