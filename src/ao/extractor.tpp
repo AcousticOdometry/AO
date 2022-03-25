@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "extractor.hpp" // Not necessary, but it helps with editor suggestions
 
 #include <array>
 #include <vector>
@@ -21,62 +22,65 @@ namespace extractor {
 // Auditory Processing and Organisation", Cambridge University Press, Series
 // "Distinguished Dissertations in Computer Science", August.
 template <Arithmetic T>
-void GammatoneFilterbank<T>::compute(
-    const std::vector<T>& input, std::vector<T>& output) {
-    for (int j = 0; j < this->num_features; j++) {
-        GammatoneFilterbank<T>::Filter filter = this->filters[j];
+void GammatoneFilterbank<T>::Filter::compute(
+    const std::vector<T>& input, T& response) const {
+    std::vector<T> env(input.size(), 0);
 
-        // Initialize filter results to zero.
-        T p1r = 0.0, p2r = 0.0, p3r = 0.0, p4r = 0.0, p1i = 0.0, p2i = 0.0,
-          p3i = 0.0, p4i = 0.0;
-        T qcos = 1, qsin = 0; /* t=0 & q = exp(-i*tpt*t*cf)*/
-
-        std::vector<T> env(this->num_samples, 0);
-        // T senv1 = 0;
-        for (int t = 0; t < this->num_samples; t++) {
-            // Filter part 1: compute p0r and p0i
-            T p0r = qcos * input[t] + filter.a[0] * p1r + filter.a[1] * p2r
-                  + filter.a[2] * p3r + filter.a[3] * p4r;
-            if (std::fabs(p0r) < std::numeric_limits<float>::min()) {
-                p0r = 0.0;
-            }
-            T p0i = qsin * input[t] + filter.a[0] * p1i + filter.a[1] * p2i
-                  + filter.a[2] * p3i + filter.a[3] * p4i;
-            if (std::fabs(p0i) < std::numeric_limits<float>::min()) {
-                p0i = 0.0;
-            }
-
-            // Filter part 2: compute u0r and u0i
-            const T u0r = p0r + filter.a[0] * p1r + filter.a[4] * p2r;
-            const T u0i = p0i + filter.a[0] * p1i + filter.a[4] * p2i;
-
-            // Update filter results
-            p4r = p3r;
-            p3r = p2r;
-            p2r = p1r;
-            p1r = p0r;
-            p4i = p3i;
-            p3i = p2i;
-            p2i = p1i;
-            p1i = p0i;
-
-            // Envelope
-            env[t] = sqrt(u0r * u0r + u0i * u0i) * filter.gain;
-            // Smoothed env by temporal integration
-            // senv1 = senv[i] = sqrt(u0r * u0r + u0i * u0i) * filter.gain
-            //     + intdecay * senv1;
-
-            // The basic idea of saving computational load:
-            //   cos(a+b) = cos(a)*cos(b) - sin(a)*sin(b)
-            //   sin(a+b) = sin(a)*cos(b) + cos(a)*sin(b)
-            //   qcos = cos(tpt*cf*t) = cos(tpt*cf + tpt*cf*(t-1))
-            //   qsin = -sin(tpt*cf*t) = -sin(tpt*cf + tpt*cf*(t-1))
-            // TODO remove temporal value
-            const T old_qcos = qcos;
-            qcos             = filter.coscf * old_qcos + filter.sincf * qsin;
-            qsin             = filter.coscf * qsin - filter.sincf * old_qcos;
+    // Initialize filter results to zero.
+    T p1r = 0.0, p2r = 0.0, p3r = 0.0, p4r = 0.0, p1i = 0.0, p2i = 0.0,
+      p3i = 0.0, p4i = 0.0;
+    T qcos = 1, qsin = 0; /* t=0 & q = exp(-i*tpt*t*cf)*/
+    for (auto& sample : input) {
+        // Filter part 1: compute p0r and p0i
+        T p0r = qcos * sample + this->a[0] * p1r + this->a[1] * p2r
+              + this->a[2] * p3r + this->a[3] * p4r;
+        if (std::fabs(p0r) < std::numeric_limits<float>::min()) {
+            p0r = 0.0;
         }
-        output[j] = std::accumulate(env.begin(), env.end(), 0.0) / env.size();
+        T p0i = qsin * sample + this->a[0] * p1i + this->a[1] * p2i
+              + this->a[2] * p3i + this->a[3] * p4i;
+        if (std::fabs(p0i) < std::numeric_limits<float>::min()) {
+            p0i = 0.0;
+        }
+
+        // Filter part 2: compute u0r and u0i
+        const T u0r = p0r + this->a[0] * p1r + this->a[4] * p2r;
+        const T u0i = p0i + this->a[0] * p1i + this->a[4] * p2i;
+
+        // Update filter results
+        p4r = p3r;
+        p3r = p2r;
+        p2r = p1r;
+        p1r = p0r;
+        p4i = p3i;
+        p3i = p2i;
+        p2i = p1i;
+        p1i = p0i;
+
+        // Envelope
+        env.push_back(sqrt(u0r * u0r + u0i * u0i) * this->gain);
+        // Smoothed env by temporal integration
+        // senv1 = senv[i] = sqrt(u0r * u0r + u0i * u0i) * this->gain
+        //     + intdecay * senv1;
+
+        // The basic idea of saving computational load:
+        //   cos(a+b) = cos(a)*cos(b) - sin(a)*sin(b)
+        //   sin(a+b) = sin(a)*cos(b) + cos(a)*sin(b)
+        //   qcos = cos(tpt*cf*t) = cos(tpt*cf + tpt*cf*(t-1))
+        //   qsin = -sin(tpt*cf*t) = -sin(tpt*cf + tpt*cf*(t-1))
+        // TODO remove temporal value
+        const T old_qcos = qcos;
+        qcos             = this->coscf * old_qcos + this->sincf * qsin;
+        qsin             = this->coscf * qsin - this->sincf * old_qcos;
+    }
+    response = std::accumulate(env.begin(), env.end(), 0.0) / env.size();
+}
+
+template <Arithmetic T>
+void GammatoneFilterbank<T>::compute(
+    const std::vector<T>& input, std::vector<T>& features) const {
+    for (int j = 0; j < this->num_features; j++) {
+        features[j] = this->filters[j](input);
     }
 }
 
@@ -93,7 +97,6 @@ template <Arithmetic T> T GammatoneFilterbank<T>::ERB_to_Hz(const T erb) {
                    - 14678.5
              : 0;
 }
-
 
 template <Arithmetic T>
 std::vector<typename GammatoneFilterbank<T>::Filter>
@@ -131,7 +134,6 @@ GammatoneFilterbank<T>::make_filters(
     }
     return filters;
 }
-
 
 } // namespace extractor
 } // namespace ao
