@@ -143,7 +143,7 @@ AlwaysBreakTemplateDeclarations: false
 
 # BinPackArguments (bool)
 # If false, a function call’s arguments will either be all on the same line or will have one line each.
-#BinPackArguments: false
+BinPackArguments: false
 
 # BinPackParameters (bool)
 # If false, a function declaration’s or function definition’s parameters will either all be on the same line or will have one line each.
@@ -214,7 +214,7 @@ CommentPragmas: ''
 
 # ConstructorInitializerAllOnOneLineOrOnePerLine (bool)
 # If the constructor initializers don’t fit on a line, put each initializer on its own line.
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
 
 # ConstructorInitializerIndentWidth (unsigned)
 # The number of characters to use for indentation of constructor initializer lists.
@@ -335,7 +335,7 @@ PenaltyBreakString: 100
 
 # PenaltyExcessCharacter (unsigned)
 # The penalty for each character outside of the column limit.
-PenaltyExcessCharacter: 150
+PenaltyExcessCharacter: 200
 
 # PenaltyReturnTypeOnItsOwnLine (unsigned)
 # Penalty for putting the return type of a function onto its own line.

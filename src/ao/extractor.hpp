@@ -43,7 +43,8 @@ template <Arithmetic T> class Extractor {
         const size_t& num_samples  = 1024,
         const size_t& num_features = 12,
         const int& sample_rate     = 44100)
-    : num_samples(num_samples), num_features(num_features),
+    : num_samples(num_samples),
+      num_features(num_features),
       sample_rate(sample_rate) {}
 
     /**
@@ -66,7 +67,8 @@ template <Arithmetic T> class Extractor {
             throw std::invalid_argument(fmt::format(
                 "Input signal must be of length {}. Instead it is "
                 "of length {}.",
-                this->num_samples, input.size()));
+                this->num_samples,
+                input.size()));
         }
         std::vector<T> features(this->num_features);
         this->compute(input, features);
@@ -126,8 +128,13 @@ template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
          * @param gain Gain
          * @param a Array of filter coefficients
          */
-        Filter(const T cf, const T gain, const std::array<T, 5> a)
-        : cf(cf), coscf(std::cos(cf)), sincf(std::sin(cf)), a(a), gain(gain) {}
+        Filter(
+            const T cf,
+            const T& coscf,
+            const T& sincf,
+            const T gain,
+            const std::array<T, 5> a)
+        : cf(cf), coscf(coscf), sincf(sincf), a(a), gain(gain) {}
 
         /**
          * @brief Wrapper around `Filter::compute`.
@@ -135,9 +142,9 @@ template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
          * @param input Vector of samples.
          * @return T Filter response.
          */
-        T operator()(const std::vector<T>& input) const {
+        T operator()(const std::vector<T>& input, const T& intdecay = 0) const {
             T feature;
-            this->compute(input, feature);
+            this->compute(input, feature, intdecay);
             return feature;
         }
 
@@ -147,10 +154,14 @@ template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
          *
          * @param input Vector of samples.
          * @param response Filter response.
+         * TODO intdecay
          */
-        void compute(const std::vector<T>& input, T& response) const;
+        void
+        compute(const std::vector<T>& input, T& response, const T& intdecay = 0)
+            const;
     };
 
+    T intdecay;
     const std::vector<Filter> filters; // Vector of filters
 
     /**
@@ -161,15 +172,19 @@ template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
      * @param sample_rate Samples per second of the input signal in Hz.
      * @param low_Hz Lowest filter center frequency in Hz.
      * @param high_Hz Highest filter center frequency in Hz.
+     * TODO expand
+     * @param temporal_integration Temporal integration in seconds. 
      */
     GammatoneFilterbank(
-        const size_t num_samples   = 1024,
-        const size_t& num_features = 64,
-        const int& sample_rate     = 44100,
-        const T& low_Hz            = 100,
-        const T& high_Hz           = 8000)
+        const size_t num_samples      = 1024,
+        const size_t& num_features    = 64,
+        const int& sample_rate        = 44100,
+        const T& low_Hz               = 100,
+        const T& high_Hz              = 8000,
+        const T& temporal_integration = 0)
     : Extractor<T>(num_samples, num_features, sample_rate),
-      filters(make_filters(low_Hz, high_Hz, num_features, sample_rate)) {}
+      filters(make_filters(low_Hz, high_Hz, num_features, sample_rate)),
+      intdecay(std::exp(-1 / (sample_rate * temporal_integration))) {}
 
     using Extractor<T>::compute; // Inherit `compute` from `Extractor`
 
@@ -184,22 +199,31 @@ template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
         const std::vector<T>& input, std::vector<T>& features) const override;
 
     /**
+     * ! Review
      * @brief Converts a frequency in Hz to its Equivalent Rectangular
      * Bandwidth.
      *
      * @param hz Frequency in Hz.
      * @return T Equivalent Rectangular Bandwidth.
      */
-    static T Hz_to_ERB(const T hz);
+    static T Hz_to_ERBRate(const T hz) {
+        return 21.4 * std::log10(4.37e-3 * (hz) + 1.0);
+    }
 
     /**
+     * ! Review
      * @brief Converts an Equivalent Rectangular Bandwidth to its frequency in
      * Hz.
      *
      * @param erb Equivalent Rectangular Bandwidth.
      * @return T Frequency in Hz.
      */
-    static T ERB_to_Hz(const T erb);
+    static T ERBRate_to_Hz(const T erb) {
+        return (std::pow(10.0, ((erb) / 21.4)) - 1.0) / 4.37e-3;
+    }
+
+    // TODO
+    static T ERB(const T f) { return 24.7 * (4.37e-3 * (f) + 1.0); }
 
     /**
      * @brief Builds a set of ao::extractor::GammatoneFilterbank::Filter with

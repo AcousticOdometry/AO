@@ -43,6 +43,7 @@ def features(
         extract: Optional[Callable[[np.array], np.array]] = None,
         extractor: ao.extractor.Extractor = ao.extractor.GammatoneFilterbank,
         ax: plt.Axes = None,
+        pcolormesh_kwargs: dict = {},
         **kwargs
     ) -> Tuple[QuadMesh, plt.Axes]:
     """Plot the features colormap of the given data.
@@ -69,6 +70,8 @@ def features(
 
         ax (plt.Axes, optional): Axes where to plot the gammatonegram. Defaults
         to None.
+
+        pcolormesh_kwargs (dict): Keyword arguments for `pcolormesh`.
 
         **kwargs: Additional keyword arguments to pass to the `extractor`.
 
@@ -101,12 +104,9 @@ def features(
     # Plot features
     if not ax:
         _, ax = plt.subplots()
-    plot = ax.pcolormesh(
-        np.flip(features, axis=0),  # Flip rows, top should be latest feature
-        cmap='jet',
-        )
+    plot = ax.pcolormesh(features, **pcolormesh_kwargs)
     # Add feature axis
-    ax.set_yticks(np.linspace(0, num_features, 5))
+    ax.set_yticks(np.linspace(0, num_features, 4))
     ax.set_ylabel("Features [-]")
     # Add time axis
     xlim = ax.get_xlim()
@@ -128,7 +128,9 @@ def gammatonegram(
     *,
     low_Hz: Optional[int] = None,
     high_Hz: Optional[int] = None,
+    temporal_integration: float = 0,
     ax: plt.Axes = None,
+    pcolormesh_kwargs: dict = {},
     ) -> Tuple[QuadMesh, plt.Axes]:
     """Plot a gammatonegram of the given data.
 
@@ -149,14 +151,19 @@ def gammatonegram(
 
         high_Hz (int, optional): Highest center frequency to use in a filter.
 
+        temporal_integration (float, optional): Temporal integration in
+        seconds.
+
         ax (plt.Axes, optional): Axes where to plot the gammatonegram. Defaults
         to None.
+
+        pcolormesh_kwargs (dict): Keyword arguments for `pcolormesh`.
 
     Returns:
         Tuple[QuadMesh, plt.Axes]: Tuple containing the colormap object and the
         axes containing it.
     """
-    kwargs = {}
+    kwargs = {'temporal_integration': temporal_integration}
     if low_Hz:
         kwargs['low_Hz'] = low_Hz
     if high_Hz:
@@ -175,6 +182,7 @@ def gammatonegram(
         compression=compression,
         extract=extract,
         ax=ax,
+        pcolormesh_kwargs=pcolormesh_kwargs,
         )
     # Change feature axis
     center_frequencies = [f.cf for f in extract.filters]

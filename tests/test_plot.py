@@ -1,6 +1,7 @@
 import ao
 import math
 import pytest
+import numpy as np
 
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -27,12 +28,16 @@ def savefig(request, output_folder):
     return _savefig
 
 
+def test_signal(audio_data, savefig):
+    data, sample_rate = audio_data
+    ax = ao.plot.signal(data, sample_rate)
+    ax.set_title('Waveform')
+    savefig(ax.figure)
+
+
 def test_gammatonegram(audio_data, savefig):
     data, sample_rate = audio_data
-    fig, axs = plt.subplots(3, 1, gridspec_kw={'height_ratios': [1, 1, 0.05]})
-    # Signal
-    ao.plot.signal(data, sample_rate, ax=axs[0])
-    axs[0].set_title('Waveform')
+    f, (ax, cax) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [1, 0.3]})
     # Gammatonegram
     frame_length = 10  # [ms]
     frame_samples = math.ceil(frame_length / 1000 * sample_rate)
@@ -43,8 +48,12 @@ def test_gammatonegram(audio_data, savefig):
         num_features=64,
         low_Hz=50,
         high_Hz=8000,
-        ax=axs[1]
+        temporal_integration=8 / 1000, # [s]
+        ax=ax,
+        pcolormesh_kwargs={'cmap': 'jet', 'vmin': -0.5},
         )
-    axs[1].set_title('Ratemap')
-    fig.colorbar(plot, cax=axs[2], orientation="horizontal")
-    savefig(fig)
+    ax.set_title('Ratemap')
+    xlow, xhigh = ax.get_xlim()
+    ax.set_xlim((xlow, xhigh - 0))
+    f.colorbar(plot, cax=cax, orientation="horizontal")
+    savefig(f)
