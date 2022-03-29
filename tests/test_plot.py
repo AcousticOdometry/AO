@@ -22,7 +22,7 @@ def savefig(request, output_folder):
     def _savefig(fig: plt.Figure):
         fig.tight_layout()
         fig.savefig(
-            output_folder / (request.node.name.lstrip('test_') + '.png')
+            output_folder / (request.node.name.replace('test_', '') + '.png')
             )
 
     return _savefig
