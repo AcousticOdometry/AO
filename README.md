@@ -51,6 +51,19 @@ for Linux) you will need to install some additional tools as it is stated in
 ```
 sudo apt-get install build-essential curl zip unzip tar pkg-config libssl-dev python3-dev
 ```
+This library is additionally based on modern C++17 with some C++20 features.
+Therefore it requires a C++ compiler that supports C++20. In linux, `gcc`
+version 11 is recommended. Fortunately, [several versions of `gcc` can co-live
+together](https://askubuntu.com/a/1028656).
+
+```
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+sudo apt update
+sudo apt install gcc-11 g++-11
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 110 \
+    --slave /usr/bin/g++ g++ /usr/bin/g++-11
+```
 #### CMake
 Follow the [official instructions](https://cmake.org/install/).
 
