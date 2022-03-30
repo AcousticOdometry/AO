@@ -21,7 +21,11 @@ source ./venv/bin/activate
 
 ### Install this project
 ```
-pip install git+https://github.com/AcousticOdometry/AO
+pip install git+https://github.com/AcousticOdometry/AO.git
+```
+or
+```
+pip install git+ssh://git@github.com/AcousticOdometry/AO.git
 ```
 It will take a while to build as it will build the C++ dependencies as well,
 but it will work. It is definitely not the most optimal way of installing a
