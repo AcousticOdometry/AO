@@ -1,6 +1,6 @@
 # Installing RUNTIME_DEPENDENCIES requires at least CMake version 3.21
 cmake_minimum_required(VERSION 3.21)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
 # Set CMake to use `vcpkg` to install dependencies. I avoids the need of
 # passing it as an argument to `cmake`.

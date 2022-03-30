@@ -25,7 +25,7 @@ namespace extractor {
  *
  * @tparam T Input signal type
  */
-template <Arithmetic T> class Extractor {
+template <typename T> class Extractor {
     public:
     const size_t num_samples;  // Number of samples in the input signal
     const size_t num_features; // Number of features to extract
@@ -106,7 +106,7 @@ template <Arithmetic T> class Extractor {
  *
  * @tparam T Input signal type
  */
-template <Arithmetic T> class GammatoneFilterbank : public Extractor<T> {
+template <typename T> class GammatoneFilterbank : public Extractor<T> {
     public:
     class Filter {
         public:

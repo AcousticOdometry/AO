@@ -21,7 +21,7 @@ namespace extractor {
 // Note: Martin Cooke's PhD has been reprinted as M. Cooke (1993): "Modelling
 // Auditory Processing and Organisation", Cambridge University Press, Series
 // "Distinguished Dissertations in Computer Science", August.
-template <Arithmetic T>
+template <typename T>
 void GammatoneFilterbank<T>::Filter::compute(
     const std::vector<T>& input, T& response, const T& intdecay) const {
     // Envelope
@@ -83,7 +83,7 @@ void GammatoneFilterbank<T>::Filter::compute(
              * std::accumulate(env.begin(), env.end(), 0.0) / env.size();
 }
 
-template <Arithmetic T>
+template <typename T>
 void GammatoneFilterbank<T>::compute(
     const std::vector<T>& input, std::vector<T>& features) const {
     for (int j = 0; j < this->num_features; j++) {
@@ -91,7 +91,7 @@ void GammatoneFilterbank<T>::compute(
     }
 }
 
-template <Arithmetic T>
+template <typename T>
 std::vector<typename GammatoneFilterbank<T>::Filter>
 GammatoneFilterbank<T>::make_filters(
     const T& low_Hz,
