@@ -84,7 +84,7 @@ setup(
         ],
     # Extra setuptools keywords:
     # https://setuptools.pypa.io/en/latest/userguide/keywords.html
-    install_requires=["requests", "numpy", "matplotlib"],
+    install_requires=["requests", "numpy", "matplotlib", "pyyaml", "python-dotenv"],
     python_requires=">=3.7",
     # When adding `[test]` to your `pip install` command you can install the
     # extra dependencies associated with testing. Example `pip install .[test]`
