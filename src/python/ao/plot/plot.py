@@ -164,9 +164,9 @@ def gammatonegram(
         axes containing it.
     """
     kwargs = {'temporal_integration': temporal_integration}
-    if low_Hz:
+    if low_Hz is not None:
         kwargs['low_Hz'] = low_Hz
-    if high_Hz:
+    if high_Hz is not None:
         kwargs['high_Hz'] = high_Hz
     extract = ao.extractor.GammatoneFilterbank(
         num_samples=frame_samples,
