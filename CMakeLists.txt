@@ -45,7 +45,7 @@ find_package(fmt CONFIG REQUIRED)
 # It is important that the library is static in order to build its Python
 # wrapper
 add_library(${PROJECT_NAME} STATIC 
-    src/${PROJECT_NAME}/extractor.cpp
+    src/ao/main.cpp
 )
 
 target_include_directories(${PROJECT_NAME} 
@@ -65,6 +65,7 @@ option(BUILD_TESTS "Build tests" ON)
 if(BUILD_TESTS)
     message(STATUS "Build tests")
     find_package(GTest CONFIG REQUIRED)
+    find_package(SndFile REQUIRED)
 
     enable_testing()
 
@@ -83,6 +84,7 @@ if(BUILD_TESTS)
         PRIVATE
             ${PROJECT_NAME}
             GTest::gtest_main
+            SndFile::sndfile
     )
 
     include(GoogleTest)

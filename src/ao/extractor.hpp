@@ -45,7 +45,10 @@ template <typename T> class Extractor {
         const int& sample_rate     = 44100)
     : num_samples(num_samples),
       num_features(num_features),
-      sample_rate(sample_rate) {}
+      sample_rate(sample_rate) {
+        static_assert(
+            std::is_arithmetic<T>::value, "T must be an arithmetic type");
+    }
 
     /**
      * @brief Destroy the Extractor object.
@@ -100,6 +103,27 @@ template <typename T> class Extractor {
     compute(const std::vector<T>& input, std::vector<T>& features) const = 0;
 };
 
+// TODO
+template <typename T, class Filter> class Filterbank : public Extractor<T> {
+    public:
+    const std::vector<Filter> filters; // Vector of filters
+
+    using Extractor<T>::compute; // Inherit `compute` from `Extractor`
+
+    /**
+     * @brief Compute the `filters` response to an input signal.
+     *
+     * @param input Input signal with size `num_samples`.
+     * @param features Output feature vector of size `num_features`.
+     */
+    virtual void compute(
+        const std::vector<T>& input, std::vector<T>& features) const override {
+        for (int j = 0; j < this->num_features; j++) {
+            features[j] = this->filters[j](input, this->intdecay);
+        }
+    };
+};
+
 /**
  * @brief Extractor based on gammatone filters.
  * https://en.wikipedia.org/wiki/Gammatone_filter
@@ -120,9 +144,10 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
 
         public:
         /**
-         * @brief Construct a new Filter object. It is important to highlight
-         * that filters do not have access to the parent filterbank. They do
-         * not mind the number of samples or sample rate once they are built.
+         * @brief Construct a new Filter object. It is important to
+         * highlight that filters do not have access to the parent
+         * filterbank. They do not mind the number of samples or sample rate
+         * once they are built.
          *
          * @param cf Center frequency
          * @param gain Gain
@@ -173,7 +198,7 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
      * @param low_Hz Lowest filter center frequency in Hz.
      * @param high_Hz Highest filter center frequency in Hz.
      * TODO expand
-     * @param temporal_integration Temporal integration in seconds. 
+     * @param temporal_integration Temporal integration in seconds.
      */
     GammatoneFilterbank(
         const size_t num_samples      = 1024,
@@ -212,8 +237,8 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
 
     /**
      * ! Review
-     * @brief Converts an Equivalent Rectangular Bandwidth to its frequency in
-     * Hz.
+     * @brief Converts an Equivalent Rectangular Bandwidth to its frequency
+     * in Hz.
      *
      * @param erb Equivalent Rectangular Bandwidth.
      * @return T Frequency in Hz.
@@ -226,15 +251,15 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
     static T ERB(const T f) { return 24.7 * (4.37e-3 * (f) + 1.0); }
 
     /**
-     * @brief Builds a set of ao::extractor::GammatoneFilterbank::Filter with
-     * center frequencies uniformly distributed between `low_Hz` and `high_Hz`
-     * accross the Equivalent Rectangular Bandwith (ERB) scale.
+     * @brief Builds a set of ao::extractor::GammatoneFilterbank::Filter
+     * with center frequencies uniformly distributed between `low_Hz` and
+     * `high_Hz` accross the Equivalent Rectangular Bandwith (ERB) scale.
      *
      * @param low_Hz Lowest filter center frequency in Hz.
      * @param high_Hz Highest filter center frequency in Hz.
      * @param num_filters Size of the output set.
-     * @param sample_rate Samples per second of signals to be processed by the
-     * filter.
+     * @param sample_rate Samples per second of signals to be processed by
+     * the filter.
      * @param bandwith_correction ERB bandwidth correction for the 4th order
      * filter. Defaults to 1.019.
      * @return std::vector<Filter> Set of filters with center frequencies

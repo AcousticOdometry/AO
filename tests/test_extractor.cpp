@@ -1,4 +1,3 @@
-#include "extractor.cpp"
 #include "extractor.hpp"
 
 #include <gtest/gtest.h>
