@@ -5,6 +5,7 @@
     "dependencies": [
         "pybind11",
         "fmt",
+        "libsndfile",
         "gtest"
     ]
 }

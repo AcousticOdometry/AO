@@ -1,7 +1,6 @@
 .vscode
 
 /_*/
-/tests/data
 /tests/output
 
 # Byte-compiled / optimized / DLL files
