@@ -26,8 +26,6 @@ class PyExtractor : public Extractor<double> {
     }
 };
 
-// TODO do the same for Filter
-
 void declareExtractor(py::module& mod) {
     // Bind the `ao.extractor` namespace as a python submodule
     py::module modExtractor = mod.def_submodule("extractor");
@@ -59,7 +57,7 @@ void declareExtractor(py::module& mod) {
                 "temporal_integration"_a = 0)
             .def_readonly("filters", &GammatoneFilterbank<double>::filters);
     // Bind the Filter nested class into the GammatoneFilterbank
-    py::class_<GammatoneFilter<double>>(
+    py::class_<GammatoneFilterbank<double>::Filter>(
         gammatone_filterbank, "Filter")
         .def(
             py::init<double, double, double, double, std::array<double, 5>>(),
@@ -68,7 +66,7 @@ void declareExtractor(py::module& mod) {
             "sincf"_a,
             "gain"_a,
             "a"_a)
-        .def_readonly("cf", &GammatoneFilter<double>::cf)
-        .def_readonly("gain", &GammatoneFilter<double>::gain)
-        .def_readonly("a", &GammatoneFilter<double>::a);
+        .def_readonly("cf", &GammatoneFilterbank<double>::Filter::cf)
+        .def_readonly("gain", &GammatoneFilterbank<double>::Filter::gain)
+        .def_readonly("a", &GammatoneFilterbank<double>::Filter::a);
 }
