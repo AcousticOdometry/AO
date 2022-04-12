@@ -103,33 +103,6 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
         const std::vector<T>& input, std::vector<T>& features) const override;
 
     /**
-     * ! Review
-     * @brief Converts a frequency in Hz to its Equivalent Rectangular
-     * Bandwidth.
-     *
-     * @param hz Frequency in Hz.
-     * @return T Equivalent Rectangular Bandwidth.
-     */
-    static T Hz_to_ERBRate(const T hz) {
-        return 21.4 * std::log10(4.37e-3 * (hz) + 1.0);
-    }
-
-    /**
-     * ! Review
-     * @brief Converts an Equivalent Rectangular Bandwidth to its frequency
-     * in Hz.
-     *
-     * @param erb Equivalent Rectangular Bandwidth.
-     * @return T Frequency in Hz.
-     */
-    static T ERBRate_to_Hz(const T erb) {
-        return (std::pow(10.0, ((erb) / 21.4)) - 1.0) / 4.37e-3;
-    }
-
-    // TODO
-    static T ERB(const T f) { return 24.7 * (4.37e-3 * (f) + 1.0); }
-
-    /**
      * @brief Builds a set of ao::extractor::GammatoneFilterbank::Filter
      * with center frequencies uniformly distributed between `low_Hz` and
      * `high_Hz` accross the Equivalent Rectangular Bandwith (ERB) scale.
