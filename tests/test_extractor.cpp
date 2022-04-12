@@ -1,4 +1,4 @@
-#include "extractor.hpp"
+#include "extractor/GammatoneFilterbank.hpp"
 
 #include <gtest/gtest.h>
 #include <sndfile.h>
@@ -52,7 +52,7 @@ TEST(TestExtractor, GammatoneFilterBank) {
     EXPECT_EQ(output, extractor.compute(input)); // Test second execution
 
     // Invalid input (too short)
-    std::vector<float> invalid_input(num_samples-1);
+    std::vector<float> invalid_input(num_samples - 1);
     sf_read_float(file, invalid_input.data(), invalid_input.size());
     EXPECT_THROW(extractor.compute(invalid_input), std::invalid_argument);
 }
