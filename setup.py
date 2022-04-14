@@ -89,5 +89,5 @@ setup(
     # When adding `[test]` to your `pip install` command you can install the
     # extra dependencies associated with testing. Example `pip install .[test]`
     # https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies
-    extras_require={"test": ["pytest"]},
+    extras_require={"test": ["pytest", "git+https://github.com/SiggiGue/pyfilterbank.git"]},
 )
