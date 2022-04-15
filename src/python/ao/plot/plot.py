@@ -94,10 +94,10 @@ def features(
     data = np.append(data, np.zeros(num_frames * frame_samples - data.size))
     # Extract features
     features = np.empty((num_features, num_frames))
-    for frame in range(num_frames):
-        batch = data[frame * frame_samples:(frame + 1) * frame_samples]
-        batch_features = extract(batch)
-        features[:, frame] = batch_features
+    for frame_num in range(num_frames):
+        frame = data[frame_num * frame_samples:(frame_num + 1) * frame_samples]
+        frame_features = extract(frame)
+        features[:, frame_num] = frame_features
     # Compress features
     if compression:
         features = np.vectorize(compression)(features)
