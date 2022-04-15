@@ -89,7 +89,7 @@ def features(
             )
     # Average signal accross channels
     data = data.copy().mean(axis=1)
-    # Pad the data so it fits the gammatone filterbank
+    # Pad the data to be a multiple of the frame size
     num_frames = math.ceil(data.size / frame_samples)
     data = np.append(data, np.zeros(num_frames * frame_samples - data.size))
     # Extract features
