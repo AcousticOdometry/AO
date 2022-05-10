@@ -37,10 +37,10 @@ def features(
         sample_rate: int,
         frame_samples: int,
         num_features: int,
-        compression: Optional[Callable[[float], float]] = math.log10,
         *,
         extract: Optional[Callable[[np.array], np.array]] = None,
         extractor: ao.extractor.Extractor = ao.extractor.GammatoneFilterbank,
+        compression: Optional[Callable[[float], float]] = math.log10,
         ax: plt.Axes = None,
         pcolormesh_kwargs: dict = {},
         **kwargs
@@ -56,9 +56,6 @@ def features(
 
         num_features (int): Number of features to extract per frame.
 
-        compression (Callable(float) -> float, optional): Function to be
-        applied to the extracted features. Defaults to `math.log10`.
-
         extract (Callable(array-like) -> array-like, optional): Function that
         extracts features from a signal frame. If not provided it will be
         constructed using `extractor`. Defaults to None.
@@ -66,6 +63,9 @@ def features(
         extractor (ao.extractor.Extractor): Function factory for `extract`.
         Ignored if `extract` is provided. Defaults to
         ao.extractor.GammatoneFilterbank.
+
+        compression (Callable(float) -> float, optional): Function to be
+        applied to the extracted features. Defaults to `math.log10`.
 
         ax (plt.Axes, optional): Axes where to plot the gammatonegram. Defaults
         to None.
@@ -86,20 +86,12 @@ def features(
             sample_rate=sample_rate,
             **kwargs
             )
-    # Average signal accross channels
-    data = data.copy().mean(axis=1)
-    # Pad the data to be a multiple of the frame size
-    num_frames = math.ceil(data.size / frame_samples)
-    data = np.append(data, np.zeros(num_frames * frame_samples - data.size))
-    # Extract features
-    features = np.empty((num_features, num_frames))
-    for frame_num in range(num_frames):
-        frame = data[frame_num * frame_samples:(frame_num + 1) * frame_samples]
-        frame_features = extract(frame)
-        features[:, frame_num] = frame_features
-    # Compress features
-    if compression:
-        features = np.vectorize(compression)(features)
+    features = ao.dataset.audio._features(
+        data,
+        frame_samples=frame_samples,
+        extract=extract,
+        compression=compression
+        )
     # Plot features
     if not ax:
         _, ax = plt.subplots()
