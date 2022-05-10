@@ -86,7 +86,11 @@ def features(
             sample_rate=sample_rate,
             **kwargs
             )
-    features = ao.dataset.audio._features(
+    # Ensure compression is a vectorized function
+    if compression:
+        compression = np.vectorize(compression)
+    # Extract features
+    _features = ao.dataset.audio.features(
         data,
         frame_samples=frame_samples,
         extract=extract,
@@ -95,7 +99,7 @@ def features(
     # Plot features
     if not ax:
         _, ax = plt.subplots()
-    plot = ax.pcolormesh(features, **pcolormesh_kwargs)
+    plot = ax.pcolormesh(_features, **pcolormesh_kwargs)
     # Add feature axis
     ax.set_yticks(np.linspace(0, num_features, 4))
     ax.set_ylabel("Features [-]")

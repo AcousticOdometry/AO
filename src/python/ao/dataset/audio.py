@@ -20,15 +20,13 @@ def _segment(
         List[np.ndarray]: List of segments with shape (length, n_channels)
     """
     n_samples, _ = data.shape  # ! Will fail with a badly shaped data array
-    num_segments = int(n_samples / length)
-    return [
-        data[n * (length - overlap):n * (length - overlap) + length, :]
-        for n in range(num_segments)
-        ]
+    step = length - overlap
+    num_segments = int(n_samples / step)
+    return [data[n * step:n * step + length, :] for n in range(num_segments)]
 
 
 def segment(
-    data: np.ndarray, 
+    data: np.ndarray,
     sample_rate: int,
     duration: int,
     overlap: int,
@@ -59,22 +57,72 @@ def segment(
     return _segment(data, segment_samples, overlap_samples)
 
 
-def _features(
-    data: np.ndarray,  # shape: (n_samples, n_channels)
-    frame_samples: int,  # [samples]
+def features(
+    data: np.ndarray,
+    frame_samples: int,
     *,
-    extract: Callable,
-    compression: Optional[Callable[[float], float]] = math.log10,
-    ):
-    features = np.vstack([
+    extract: Callable[[np.ndarray], np.ndarray],
+    compression: Optional[Callable[[float], float]] = np.vectorize(math.log10),
+    ) -> np.ndarray:
+    """Extracts features from the given audio signal.
+
+    Args:
+        data (np.ndarray): Audio signal with shape (n_samples, n_channels)
+        frame_samples (int): Number of samples in each frame
+        extract (Callable[[np.ndarray], np.ndarray]): Function to extract
+            features, it will be applied to each frame averaged in the channels
+            axis. 
+        compression (Optional[Callable[[float], float]], optional): Compression
+            to be applied after the extract function. Defaults to 
+            np.vectorize(math.log10).
+
+    Returns:
+        np.ndarray: Array of features with shape 
+            (int(n_samples / frame_samples), n_features) where n_features is
+            determined by the extract function.
+    """
+    f = np.vstack([
         extract(frame.mean(axis=1))
         for frame in _segment(data, frame_samples, 0)
         ]).transpose()
     # Compress features
     if compression:
-        features = np.vectorize(compression)(features)
-    return features
+        f = compression(f)
+    return f
 
 
-def features():
-    pass
+def segment_into_features(
+    data: np.ndarray,
+    sample_rate: int,
+    frame_duration: int,
+    segment_duration: Optional[int] = None,
+    segment_overlap: int = 0,
+    *,
+    extract: Callable[[np.ndarray], np.ndarray],
+    compression: Optional[Callable[[float], float]] = math.log10,
+    ) -> List[np.ndarray]:
+    """Segments the given audio signal and extracts features from each segment.
+
+    Args:
+        data (np.ndarray): Audio signal with shape (n_samples, n_channels)
+        sample_rate (int): Frequency of samples in the audio signal [Hz]
+        frame_duration (int): Length of a feature frame in milliseconds
+        segment_duration (int): Length of a segment duration in milliseconds
+        segment_overlap (int): Overlap between segments. Defaults to 0.
+        extract (Callable[[np.ndarray], np.ndarray]): Function to extract
+            features, it will be applied to each frame averaged in the channels
+            axis. 
+        compression (Optional[Callable[[float], float]], optional): Compression
+            to be applied after the extract function. Defaults to 
+            np.vectorize(math.log10).
+
+    Returns:
+        List[np.ndarray]: List of arrays of features
+    """
+    frame_samples = int(frame_duration * sample_rate / 1000)
+    if compression:
+        compression = np.vectorize(compression)
+    return [
+        features(s, frame_samples, extract=extract, compression=compression)
+        for s in segment(data, sample_rate, segment_duration, segment_overlap)
+        ]
