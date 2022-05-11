@@ -43,12 +43,12 @@ def get_data_folder(
     data_folder = Path(data_folder)
     if not data_folder.is_dir():
         raise ValueError(
-            f"Specified data folder {data_folder} is not a directory"
+            fr"Specified data folder {data_folder} is not a directory"
             )
     return data_folder
 
 
-def parse_filename(filename: Union[str, Path]) -> dict:
+def parse_filename(filename: str) -> dict:
     """Parses a filename into a dictionary. Dictionary items are divided by `;`
     characters. Key and value are separated by `_`. Values are parsed into
     `int`, `bool` or left as string in that order. See
@@ -56,15 +56,15 @@ def parse_filename(filename: Union[str, Path]) -> dict:
     for details on the boolean conversion.
 
     Args:
-        filename (Union[str, Path]): Filename to be parsed. If a full path is
-            given, only its stem will be used (filename without suffix).
+        filename (str): Filename to be parsed. It is supposed to be only the
+        name, not a full path.
 
     Returns:
         dict: Parsed dictionary containing string keys with corresponding int,
             bool and string values.
     """
     parsed = {}
-    for item in Path(filename).stem.split(';'):
+    for item in str(filename).split(';'):
         try:
             key, value = item.split('_')
         except ValueError:
@@ -76,7 +76,7 @@ def parse_filename(filename: Union[str, Path]) -> dict:
                 )
         # Parse number
         try:
-            value = int(value)
+            value = float(value)
         except ValueError:
             # Parse bool
             try:
@@ -119,7 +119,7 @@ def list_data(
         if not d.is_dir():
             continue
         try:
-            content = parse_filename(d)
+            content = parse_filename(d.name)
         except ValueError as e:
             warn(str(e))
             continue
@@ -128,7 +128,7 @@ def list_data(
             if content.keys() != naming.keys():
                 warn(
                     f"{d} does not meet the naming convention that requires "
-                    f"{naming.keys()}"
+                    f"{naming.keys()}. It has {content.keys()}."
                     )
                 continue
         data[d] = content
