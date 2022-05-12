@@ -1,5 +1,6 @@
+from ao.io import yaml_load
+
 import os
-import yaml
 
 from pathlib import Path
 from warnings import warn
@@ -109,10 +110,8 @@ def list_data(
     """
     data_folder = Path(data_folder)
     # Find naming convention
-    if naming is None and (naming_file :=
-                           data_folder / 'naming.yaml').exists():
-        with open(naming_file) as f:
-            naming = yaml.safe_load(f)
+    if naming is None and (_naming := data_folder / 'naming.yaml').exists():
+        naming = yaml_load(_naming)
     # Parse subfolders
     data = {}
     for d in data_folder.iterdir():
