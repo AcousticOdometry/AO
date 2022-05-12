@@ -30,6 +30,7 @@ def strtobool(value: str) -> bool:
         raise ValueError('Boolean value expected.')
 
 
+# TODO rename to get_folder
 def get_data_folder(
         env: Optional['str'] = None, interactive: bool = True
     ) -> Path:
@@ -88,6 +89,8 @@ def parse_filename(filename: str) -> dict:
         parsed[key] = value
     return parsed
 
+def dict_to_filename(d: dict) -> str:
+    raise NotImplementedError('Not implemented yet.')
 
 def list_data(
     data_folder: Union[str, Path],
