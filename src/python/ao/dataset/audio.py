@@ -21,7 +21,7 @@ def _segment(
     """
     n_samples, _ = data.shape  # ! Will fail with a badly shaped data array
     step = length - overlap
-    num_segments = int(n_samples / step)
+    num_segments = int((n_samples - overlap) / step)
     return [data[n * step:n * step + length, :] for n in range(num_segments)]
 
 
