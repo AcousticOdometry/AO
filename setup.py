@@ -32,7 +32,7 @@ if not VCPKG_CMAKE_TOOLCHAIN.is_file():
     # Update the current repository submodules. `vcpkg` is a submodule of this
     # repository.
     from git import Repo
-    for submodule in  Repo(PROJECT_SOURCE_DIR).sumodules:
+    for submodule in  Repo(PROJECT_SOURCE_DIR).submodules:
         if submodule.name == "vcpkg":
             submodule.update(init=True)
             break
