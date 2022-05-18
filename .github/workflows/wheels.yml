@@ -24,13 +24,47 @@ jobs:
       - name: Restore artifacts, or setup vcpkg for building artifacts
         uses: lukka/run-vcpkg@v10.1
 
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.3.1
         env:
           # vcpkg does not support i686 nor aarch64
-          CIBW_ARCHS_LINUX: "x86_64 ppc64le s390x"
+          CIBW_ARCHS_LINUX: "x86_64"
+          # Only build on CPython 3.9 and 3.7
+          # CIBW_BUILD: "cp37-* cp39-*"
+          # Skip musllinux builds
+          CIBW_SKIP: "*-musllinux_*"
+          # Pre install vcpkg (Seems to make the run faster)
+          CIBW_BEFORE_BUILD_MACOS: ${{ github.workspace }}/vcpkg/bootstrap-vcpkg.sh; ${{ github.workspace }}/vcpkg/vcpkg install
+          CIBW_BEFORE_BUILD_WINDOWS: ${{ github.workspace }}/vcpkg/bootstrap-vcpkg.bat; ${{ github.workspace }}/vcpkg/vcpkg install
+        with:
+          # ./wheelhouse/ is already populated use a temporal one
+          # push_wheelhouse will take care of updating ./wheelhouse/
+          output-dir: _wheelhouse
 
       - uses: actions/upload-artifact@v2
         with:
-          path: ./wheelhouse/*.whl
+          name: dist
+          path: ./_wheelhouse/*.whl
+    
+  push_wheelhouse:
+    name: Push wheelhouse
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Remove current wheels
+        run: rm -f ./wheelhouse/* || true
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: ./wheelhouse/
+
+      - name: Push wheelhouse
+        run: |
+          git config --global user.name 'esdandreu'
+          git config --global user.email 'esdandreu@users.noreply.github.com'
+          git add wheelhouse/
+          git commit -m "Built Python wheels"
+          git push
