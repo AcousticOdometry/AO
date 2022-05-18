@@ -29,8 +29,7 @@ if SKBUILD_DIR.exists():
 VCPKG_DIR = PROJECT_SOURCE_DIR / "vcpkg"
 VCPKG_CMAKE_TOOLCHAIN = VCPKG_DIR / "scripts" / "buildsystems" / "vcpkg.cmake"
 if not VCPKG_CMAKE_TOOLCHAIN.is_file():
-    # Update the current repository submodules. `vcpkg` is a submodule of this
-    # repository.
+    # Update `vcpkg` as a submodule of this repository.
     from git import Repo
     for submodule in  Repo(PROJECT_SOURCE_DIR).submodules:
         if submodule.name == "vcpkg":
