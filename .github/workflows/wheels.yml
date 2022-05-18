@@ -18,9 +18,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-        with:
-          submodules: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone vcpkg
+        run: git submodule update --init --recursive ./vcpkg
         
       - name: Restore artifacts, or setup vcpkg for building artifacts
         uses: lukka/run-vcpkg@v10.1
