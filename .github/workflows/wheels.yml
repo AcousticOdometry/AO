@@ -30,7 +30,7 @@ jobs:
           # vcpkg does not support i686 nor aarch64
           CIBW_ARCHS_LINUX: "x86_64"
           # Only build on CPython
-          CIBW_BUILD: cp-*
+          CIBW_BUILD: cp*
           # Skip musllinux builds
           CIBW_SKIP: "*-musllinux_*"
           # Pre install vcpkg (Seems to make the run faster)
