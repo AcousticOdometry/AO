@@ -3,4 +3,4 @@
 	url = https://github.com/microsoft/vcpkg.git
 [submodule "tests"]
 	path = tests
-	url = git@github.com:AcousticOdometry/AO-tests.git
+	url = https://github.com/AcousticOdometry/AO-tests.git
