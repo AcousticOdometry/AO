@@ -112,8 +112,10 @@ def list_data(
     """
     data_folder = Path(data_folder)
     # Find naming convention
-    if naming is None and (_naming := data_folder / 'naming.yaml').exists():
-        naming = yaml_load(_naming)
+    if naming is None:
+        _naming = data_folder / 'naming.yaml'
+        if _naming.exists():
+            naming = yaml_load(_naming)
     # Parse subfolders
     data = {}
     for d in data_folder.iterdir():
