@@ -68,6 +68,12 @@ sudo apt install gcc-11 g++-11
 sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 110 \
     --slave /usr/bin/g++ g++ /usr/bin/g++-11
 ```
+
+#### Bazel
+Needed to install `tensorflow`
+
+https://docs.bazel.build/versions/main/install.html
+
 #### CMake
 Follow the [official instructions](https://cmake.org/install/).
 
