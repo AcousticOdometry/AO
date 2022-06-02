@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Set CMake to use `vcpkg` to install dependencies. I avoids the need of
 # passing it as an argument to `cmake`.
 # https://github.com/microsoft/vcpkg/blob/master/docs/users/integration.md#using-an-environment-variable-instead-of-a-command-line-option
-if (NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     if(DEFINED ENV{VCPKG_ROOT})
         set(CMAKE_TOOLCHAIN_FILE 
             "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING ""
@@ -17,7 +17,7 @@ if (NOT DEFINED CMAKE_TOOLCHAIN_FILE)
         )
     endif()
 endif()
-if (DEFINED CMAKE_TOOLCHAIN_FILE) # Print useful information
+if(DEFINED CMAKE_TOOLCHAIN_FILE) # Print useful information
     message(STATUS "Using toolchain: ${CMAKE_TOOLCHAIN_FILE}")
 else()
     message(STATUS "\
@@ -41,6 +41,11 @@ project(${PROJECT_NAME} VERSION ${VERSION_STRING})
 # ------------------------- Build the project library -------------------------
 # Recomended refactor into src/${PROJECT_NAME}/CMakeLists.txt
 find_package(fmt CONFIG REQUIRED)
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/libtorch")
+# enable_language(CUDA)
+find_package(Torch REQUIRED)
+message(STATUS "cmake prefix path: ${CMAKE_PREFIX_PATH}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 # It is important that the library is static in order to build its Python
 # wrapper
@@ -56,7 +61,21 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE
         fmt::fmt
+        "${TORCH_LIBRARIES}"
 )
+
+# The following code block is suggested to be used on Windows. According to
+# https://github.com/pytorch/pytorch/issues/25457, the DLLs need to be copied
+# to avoid memory errors.
+if(MSVC)
+    file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+    add_custom_command(TARGET ${PROJECT_NAME}
+        POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${TORCH_DLLS}
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    )
+endif(MSVC)
 
 # ---------------------------- Build library tests ----------------------------
 option(BUILD_TESTS "Build tests" ON)
