@@ -69,10 +69,10 @@ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 110 \
     --slave /usr/bin/g++ g++ /usr/bin/g++-11
 ```
 
-#### Bazel
-Needed to install `tensorflow`
+#### Git Large File System
+Needed for the model files
 
-https://docs.bazel.build/versions/main/install.html
+https://git-lfs.github.com/
 
 #### CMake
 Follow the [official instructions](https://cmake.org/install/).

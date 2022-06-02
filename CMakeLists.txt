@@ -77,6 +77,7 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
         fmt::fmt
         "${TORCH_LIBRARIES}"
+        "${TORCH_CUDA_LIBRARIES}"
 )
 
 # Pytorch: The following code block is suggested to be used on Windows.

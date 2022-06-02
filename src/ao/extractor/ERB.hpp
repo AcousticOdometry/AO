@@ -1,3 +1,5 @@
+#pragma once
+
 namespace ao {
 namespace extractor {
 

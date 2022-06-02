@@ -1,6 +1,3 @@
-#pragma once
-
-#include "common.hpp"
 #include "extractor/ERB.hpp"
 
 #include <array>

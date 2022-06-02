@@ -29,7 +29,7 @@ if SKBUILD_DIR.exists():
 VCPKG_DIR = PROJECT_SOURCE_DIR / "vcpkg"
 VCPKG_CMAKE_TOOLCHAIN = VCPKG_DIR / "scripts" / "buildsystems" / "vcpkg.cmake"
 if not VCPKG_CMAKE_TOOLCHAIN.is_file():
-    # Update `vcpkg` as a submodule of this repository.
+    # Update only `vcpkg` as a submodule of this repository.
     from git import Repo
     for submodule in  Repo(PROJECT_SOURCE_DIR).submodules:
         if submodule.name == "vcpkg":
@@ -83,7 +83,7 @@ setup(
     # https://setuptools.pypa.io/en/latest/userguide/keywords.html
     install_requires=[
         "requests", "numpy", "matplotlib", "pyyaml", "python-dotenv", 
-        "tensorflow"
+        "torch", "torchvision", "torchaudio",
         ],
     python_requires=">=3.7",
     # When adding `[test]` to your `pip install` command you can install the
