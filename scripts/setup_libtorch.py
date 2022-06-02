@@ -63,6 +63,7 @@ if __name__ == '__main__':
         'compute_platform',
         type=str,
         default='cpu',
+        nargs='?',
         choices=list(BINARIES[SYSTEM].keys()),
         help="Compute platform to use",
         )
