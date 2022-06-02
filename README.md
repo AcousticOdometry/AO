@@ -150,7 +150,7 @@ pip install .[test]
 ### Test the C++ library with Google Test
 
 ```
-ctest --test-dir build
+ctest --test-dir build/tests
 ```
 
 ### Test the python extension
