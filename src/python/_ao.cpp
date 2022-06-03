@@ -1,9 +1,12 @@
+// #include "ao.hpp"
+
 #include <pybind11/pybind11.h>
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
 namespace py = pybind11;
+// using namespace py::literals;
 
 void declareExtractor(py::module& mod);
 
@@ -14,14 +17,19 @@ PYBIND11_MODULE(_ao, mod) {
 
     // py::class_<ao::AO<double>>(mod, "AO")
     //     .def(
-    //         py::init<size_t, size_t, int>(),
-    //         "num_samples"_a  = 1024,
-    //         "num_features"_a = 64,
-    //         "sample_rate"_a  = 44100)
+    //         py::init<
+    //             std::filesystem::path,
+    //             std::vector<ao::extractor::Extractor<double>*>,
+    //             size_t,
+    //             std::string>(),
+    //         "model_path"_a,
+    //         "extractors"_a,
+    //         "num_frames"_a,
+    //         "device_string"_a = "cpu")
     //     .def(
     //         "__call__",
     //         &ao::AO<double>::operator(),
-    //         "input"_a,
+    //         "samples"_a,
     //         py::return_value_policy::move);
 
     declareExtractor(mod);
