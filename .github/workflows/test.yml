@@ -45,7 +45,7 @@ jobs:
         run: cmake --build build --config Release
 
       - name: Test
-        run: ctest --test-dir build
+        run: ctest --test-dir build/tests
 
   python:
     name: ${{ github.workflow }} Python package on ${{ matrix.os }}
