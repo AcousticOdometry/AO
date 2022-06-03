@@ -2,6 +2,7 @@
 
 #include "extractor.hpp"
 
+#include <fmt/core.h>
 #include <torch/script.h>
 
 #include <filesystem>
@@ -20,15 +21,17 @@ template <typename T> class AO {
     const size_t num_frames;
     const size_t num_features;
     const size_t num_samples;
-    const torch::Tensor& prediction;
+    const torch::Tensor& features;   // Read only model input tensor
+    const torch::Tensor& prediction; // Read only model output tensor
 
     protected:
     torch::jit::script::Module model;
 
     private:
-    torch::Tensor _input;
-    torch::Tensor _prediction;
-    size_t frame_n = 0;
+    std::vector<T> _temp_features; // Temporary vector of features used to
+                                   // update _features
+    torch::Tensor _features;       // Model input tensor
+    torch::Tensor _prediction;     // Model output tensor
 
     public:
     /**
@@ -37,12 +40,13 @@ template <typename T> class AO {
      */
     AO(const std::filesystem::path& model_path,
        const std::vector<extractor::Extractor<T>*>& extractors,
-       // TODO remove default values?
-       const size_t& num_frames         = 120,
+       const size_t& num_frames,
        const std::string& device_string = "cpu")
     : extractors(extractors),
+      // TODO hardcoded prediction size
       _prediction(torch::zeros({6})),
       prediction(_prediction),
+      features(_features),
       num_frames(num_frames),
       num_features(extractors[0]->num_features),
       num_samples(extractors[0]->num_samples) {
@@ -63,26 +67,48 @@ template <typename T> class AO {
                     num_samples));
             }
         }
+        // Load model
         // TODO test load on GPU
         model = torch::jit::load(model_path, torch::Device(device_string));
+        // Allocate memory for the model input tensor
         // ? tensor with type T ?
-        _input = torch::empty(
-            {1,
-             static_cast<long int>(extractors.size()),
-             static_cast<long int>(num_features),
-             static_cast<long int>(num_frames)});
-        std::cout << _input << std::endl;
+        _features = torch::empty({
+            1,
+            static_cast<long int>(extractors.size()),
+            static_cast<long int>(num_features),
+            static_cast<long int>(num_frames),
+        });
+        // Allocate memory for a temporary vector of features
+        this->_temp_features.resize(num_features);
     }
 
     // What about several channels ? vector of vectors ?
-    const torch::Tensor& predict(const std::vector<T>& input) {
-        _input.index({
-            0,
-            0,
-        });
-        // TODO build input tensor
-        // TODO predict
-        return prediction;
+    const torch::Tensor& update(const std::vector<T>& samples) {
+        // Compute features and insert them on the model input tensor
+        for (int i = 0; i < this->extractors.size(); i++) {
+            this->extractors[i]->compute(samples, this->_temp_features);
+            // Replace the first column with new features
+            this->_features.index_put_(
+                {0, i, torch::indexing::Slice(), 0},
+                torch::from_blob(
+                    this->_temp_features.data(),
+                    {static_cast<long int>(this->num_features)}));
+            // Roll the tensor in order to have the first column as last
+            this->_features = this->_features.roll(-1, 3);
+        }
+        return this->features;
+    }
+
+    const torch::Tensor& predict() {
+        std::vector<torch::jit::IValue> inputs;
+        inputs.push_back(this->_features);
+        this->_prediction = this->model.forward(inputs).toTensor();
+        return this->prediction;
+    }
+
+    const torch::Tensor& predict(const std::vector<T>& samples) {
+        this->update(samples);
+        return this->predict();
     }
 };
 

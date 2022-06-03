@@ -36,11 +36,15 @@ template <typename T> class Extractor {
      * features.
      * @param num_features Number of features per vector.
      * @param sample_rate Samples per second of the input signal.
+     * @param on_channel If the input samples are a 2D vector, on_channel
+     * defines which 
      */
     Extractor(
         const size_t& num_samples  = 1024,
         const size_t& num_features = 12,
-        const int& sample_rate     = 44100)
+        const int& sample_rate     = 44100
+        // TODO const size_t& on_channel   = 0
+        )
     : num_samples(num_samples),
       num_features(num_features),
       sample_rate(sample_rate) {
@@ -88,7 +92,6 @@ template <typename T> class Extractor {
         return this->compute(input);
     }
 
-    protected:
     /**
      * @brief Compute the feature extraction of an input signal into `output`
      * argument. This method must be implemented by each derived extractor.
