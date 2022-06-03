@@ -37,6 +37,11 @@ template <typename T> class AO {
     /**
      * @brief Construct a new AO object
      *
+     * @param model_path Path to the model file
+     * @param extractors Vector of extractor pointers that will be called with
+     * the input signal to extract features as channels for the model input.
+     * @param num_frames Number of frames to keep rolling in the model input.
+     * @param device_string Name of the device to be used.
      */
     AO(const std::filesystem::path& model_path,
        const std::vector<extractor::Extractor<T>*>& extractors,
@@ -44,7 +49,7 @@ template <typename T> class AO {
        const std::string& device_string = "cpu")
     : extractors(extractors),
       // TODO hardcoded prediction size
-      _prediction(torch::zeros({6})),
+      _prediction(torch::zeros({1})),
       prediction(_prediction),
       features(_features),
       num_frames(num_frames),
@@ -82,7 +87,14 @@ template <typename T> class AO {
         this->_temp_features.resize(num_features);
     }
 
-    // What about several channels ? vector of vectors ?
+    // ! What about several channels ? vector of vectors ?
+    /**
+     * @brief Update the model input features by extracting new features from
+     * unique channel of input signal samples.
+     *
+     * @param samples A vector of samples that compose the input signal.
+     * @return const torch::Tensor& The updated model input tensor.
+     */
     const torch::Tensor& update(const std::vector<T>& samples) {
         // Compute features and insert them on the model input tensor
         for (int i = 0; i < this->extractors.size(); i++) {
@@ -99,6 +111,11 @@ template <typename T> class AO {
         return this->features;
     }
 
+    /**
+     * @brief Uses the model to predict with the stored features.
+     *
+     * @return const torch::Tensor& Prediction.
+     */
     const torch::Tensor& predict() {
         std::vector<torch::jit::IValue> inputs;
         inputs.push_back(this->_features);
@@ -106,9 +123,26 @@ template <typename T> class AO {
         return this->prediction;
     }
 
+    /**
+     * @brief Updates the model input features and uses them to predict with
+     * the model.
+     *
+     * @param samples Vector of samples that compose the input signal.
+     * @return const torch::Tensor& Prediction.
+     */
     const torch::Tensor& predict(const std::vector<T>& samples) {
         this->update(samples);
         return this->predict();
+    }
+
+    /**
+     * @brief Wrapper for predict.
+     *
+     * @param samples Vector of samples that compose the input signal.
+     * @return const torch::Tensor& Prediction.
+     */
+    const torch::Tensor& operator()(const std::vector<T>& samples) {
+        return this->predict(samples);
     }
 };
 
