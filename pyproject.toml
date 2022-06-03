@@ -6,6 +6,7 @@ requires = [
     "ninja",
     "pybind11",
     "GitPython",
+    "requests",
 ]
 
 build-backend = "setuptools.build_meta"

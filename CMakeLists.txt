@@ -2,6 +2,10 @@
 cmake_minimum_required(VERSION 3.21)
 set(CMAKE_CXX_STANDARD 17)
 
+# Options
+option(BUILD_TESTS "Build tests" ON)
+option(BUILD_PYTHON_API "Build Python API" OFF) # defined in `setup.py`
+
 # Set CMake to use `vcpkg` to install dependencies. I avoids the need of
 # passing it as an argument to `cmake`.
 # https://github.com/microsoft/vcpkg/blob/master/docs/users/integration.md#using-an-environment-variable-instead-of-a-command-line-option
@@ -41,26 +45,31 @@ project(${PROJECT_NAME} VERSION ${VERSION_STRING})
 # ------------------------- Build the project library -------------------------
 # Recomended refactor into src/${PROJECT_NAME}/CMakeLists.txt
 find_package(fmt CONFIG REQUIRED)
-find_package(Torch QUIET)
-if(NOT Torch_FOUND)
-    message(STATUS "Torch global installation was not found")
-    # TODO install if not found
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/libtorch")
-        find_package (Python3 COMPONENTS Interpreter REQUIRED)
-        message(STATUS "\
+
+if(NOT BUILD_PYTHON_API) # Python API will not
+    find_package(Torch QUIET)
+    if(NOT Torch_FOUND)
+        message(STATUS "Torch global installation was not found")
+        # TODO install if not found
+        if(NOT EXISTS "${CMAKE_SOURCE_DIR}/libtorch")
+            find_package (Python3 COMPONENTS Interpreter REQUIRED)
+            message(STATUS "\
     Installing locally using ${CMAKE_SOURCE_DIR}/scripts/setup_libtorch.py"
+            )
+            execute_process(COMMAND 
+                "${Python3_EXECUTABLE}" 
+                "${CMAKE_SOURCE_DIR}/scripts/setup_libtorch.py"
+                WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            )
+        endif()
+        message(STATUS 
+            "Using local installation at ${CMAKE_SOURCE_DIR}/libtorch"
         )
-        execute_process(COMMAND 
-            "${Python3_EXECUTABLE}" 
-            "${CMAKE_SOURCE_DIR}/scripts/setup_libtorch.py"
-            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        )
+        list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/libtorch")
+        find_package(Torch REQUIRED)
     endif()
-    message(STATUS "Using local installation at ${CMAKE_SOURCE_DIR}/libtorch")
-    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/libtorch")
-    find_package(Torch REQUIRED)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 # It is important that the library is static in order to build its Python
 # wrapper
@@ -94,7 +103,6 @@ if(MSVC)
 endif(MSVC)
 
 # ---------------------------- Build library tests ----------------------------
-option(BUILD_TESTS "Build tests" ON)
 if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
@@ -102,8 +110,6 @@ endif()
 # ----------------------------- Build python api ------------------------------
 # Recomended refactor into src/python/CMakeLists.txt
 
-# Option for building the project Python API, `setup.py` defines this variable
-option(BUILD_PYTHON_API "Build Python API" OFF)
 if(BUILD_PYTHON_API)
     add_subdirectory(src/python)
 endif()

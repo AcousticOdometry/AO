@@ -1,5 +1,7 @@
 #include "ao.hpp"
 
+#if BUILD_PYTHON_API != ON
+
 #include <gtest/gtest.h>
 #include <sndfile.h>
 
@@ -52,3 +54,5 @@ TEST(TestInference, LibTorch) {
                         })));
     }
 }
+
+#endif

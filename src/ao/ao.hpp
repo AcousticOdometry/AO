@@ -1,5 +1,8 @@
 #pragma once
 
+// The python API will use pytorch directly instead of the C++ frontend
+#if BUILD_PYTHON_API != ON
+
 #include "extractor.hpp"
 
 #include <fmt/core.h>
@@ -147,3 +150,5 @@ template <typename T> class AO {
 };
 
 } // namespace ao
+
+#endif
