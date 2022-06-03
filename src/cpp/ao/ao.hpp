@@ -1,9 +1,9 @@
 #pragma once
 
 // The python API will use pytorch directly instead of the C++ frontend
-#if BUILD_PYTHON_API != ON
+#ifdef WITH_LIBTORCH
 
-#include "extractor.hpp"
+#include "ao/extractor.hpp"
 
 #include <fmt/core.h>
 #include <torch/script.h>

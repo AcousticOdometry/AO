@@ -39,14 +39,13 @@ string(JSON VERSION_STRING GET ${vcpkg_json} "version-string")
 
 project(${PROJECT_NAME} VERSION ${VERSION_STRING})
 
-# It is recommended to split this file into multiple files and use
-# `add_submodule` if it starts to grow too large.
-
 # ------------------------- Build the project library -------------------------
-# Recomended refactor into src/${PROJECT_NAME}/CMakeLists.txt
+# TODO refactor into src/cpp/${PROJECT_NAME}/CMakeLists.txt
 find_package(fmt CONFIG REQUIRED)
 
 if(NOT BUILD_PYTHON_API) # Python API will not
+    message(STATUS "Building library with libtorch")
+    add_definitions(-DWITH_LIBTORCH)
     find_package(Torch QUIET)
     if(NOT Torch_FOUND)
         message(STATUS "Torch global installation was not found")
@@ -69,17 +68,19 @@ if(NOT BUILD_PYTHON_API) # Python API will not
         find_package(Torch REQUIRED)
     endif()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+else()
+    message(STATUS "Building library without libtorch")
 endif()
 
 # It is important that the library is static in order to build its Python
 # wrapper
 add_library(${PROJECT_NAME} STATIC 
-    src/ao/main.cpp
+    src/cpp/main.cpp
 )
 
 target_include_directories(${PROJECT_NAME} 
     PUBLIC
-        src/${PROJECT_NAME}
+        src/cpp
 )
 
 target_link_libraries(${PROJECT_NAME} 
@@ -108,8 +109,6 @@ if(BUILD_TESTS)
 endif()
 
 # ----------------------------- Build python api ------------------------------
-# Recomended refactor into src/python/CMakeLists.txt
-
 if(BUILD_PYTHON_API)
     add_subdirectory(src/python)
 endif()

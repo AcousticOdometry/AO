@@ -1,5 +1,4 @@
-#include "extractor.hpp"
-#include "extractor/GammatoneFilterbank.hpp"
+#include "ao/extractor.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>

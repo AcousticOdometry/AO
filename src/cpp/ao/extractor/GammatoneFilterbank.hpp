@@ -129,4 +129,4 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
 } // namespace extractor
 } // namespace ao
 
-#include "extractor/GammatoneFilterbank.tpp"
+#include "ao/extractor/GammatoneFilterbank.tpp"

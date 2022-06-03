@@ -1,11 +1,13 @@
-#include "ao.hpp"
-
-#if BUILD_PYTHON_API != ON
+#include "ao/ao.hpp"
 
 #include <gtest/gtest.h>
 #include <sndfile.h>
 
 #include <iostream>
+
+#ifdef WITH_LIBTORCH
+
+// ! Dirty test used during development, not ready for production
 
 // TODO Audio fixture
 // class TestAudioFiles : public testing::TestWithParam<int> {};
