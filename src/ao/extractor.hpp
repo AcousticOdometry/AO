@@ -103,3 +103,7 @@ template <typename T> class Extractor {
 
 } // namespace extractor
 } // namespace ao
+
+// Include subclasses
+// ! Don't know if it is the best way
+#include "extractor/GammatoneFilterbank.hpp"

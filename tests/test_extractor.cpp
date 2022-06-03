@@ -1,5 +1,4 @@
 #include "extractor.hpp"
-#include "extractor/GammatoneFilterbank.hpp"
 
 #include <gtest/gtest.h>
 #include <sndfile.h>
