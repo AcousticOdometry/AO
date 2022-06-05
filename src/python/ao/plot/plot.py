@@ -9,10 +9,10 @@ from typing import Tuple, Callable, Optional
 
 
 def signal(
-        data: np.ndarray,
-        sample_rate: int,
-        *,
-        ax: plt.Axes = None
+    data: np.ndarray,
+    sample_rate: int,
+    *,
+    ax: plt.Axes = None,
     ) -> plt.Axes:
     num_samples, num_channels = data.shape  # ! This might fail if input is 3D
     if not ax:
@@ -33,17 +33,17 @@ def signal(
 
 
 def features(
-        data: np.ndarray,
-        sample_rate: int,
-        frame_samples: int,
-        num_features: int,
-        *,
-        extract: Optional[Callable[[np.array], np.array]] = None,
-        extractor: ao.extractor.Extractor = ao.extractor.GammatoneFilterbank,
-        compression: Optional[Callable[[float], float]] = math.log10,
-        ax: plt.Axes = None,
-        pcolormesh_kwargs: dict = {},
-        **kwargs
+    data: np.ndarray,
+    sample_rate: int,
+    frame_samples: int,
+    num_features: int,
+    transform: Optional[Callable[[float], float]] = math.log10,
+    *,
+    extract: Optional[Callable[[np.array], np.array]] = None,
+    extractor: ao.extractor.Extractor = ao.extractor.GammatoneFilterbank,
+    ax: plt.Axes = None,
+    pcolormesh_kwargs: dict = {},
+    **extractor_kwargs,
     ) -> Tuple[QuadMesh, plt.Axes]:
     """Plot the features colormap of the given data.
 
@@ -57,22 +57,23 @@ def features(
         num_features (int): Number of features to extract per frame.
 
         extract (Callable(array-like) -> array-like, optional): Function that
-        extracts features from a signal frame. If not provided it will be
-        constructed using `extractor`. Defaults to None.
+            extracts features from a signal frame. If not provided it will be
+            constructed using `extractor`. Defaults to None.
 
         extractor (ao.extractor.Extractor): Function factory for `extract`.
-        Ignored if `extract` is provided. Defaults to
-        ao.extractor.GammatoneFilterbank.
+            Ignored if `extract` is provided. Defaults to
+            ao.extractor.GammatoneFilterbank.
 
-        compression (Callable(float) -> float, optional): Function to be
-        applied to the extracted features. Defaults to `math.log10`.
+        transform (Callable(float) -> float, optional): Function to be
+            applied to the extracted features. Defaults to `math.log10`.
 
         ax (plt.Axes, optional): Axes where to plot the gammatonegram. Defaults
-        to None.
+            to None.
 
         pcolormesh_kwargs (dict): Keyword arguments for `pcolormesh`.
 
-        **kwargs: Additional keyword arguments to pass to the `extractor`.
+        **extractor_kwargs: Additional keyword arguments to pass to the
+        `extractor`.
 
     Returns:
         Tuple[QuadMesh, plt.Axes]: Tuple containing the colormap object and the
@@ -84,17 +85,14 @@ def features(
             num_samples=frame_samples,
             num_features=num_features,
             sample_rate=sample_rate,
-            **kwargs
+            transform=transform,
+            **extractor_kwargs
             )
-    # Ensure compression is a vectorized function
-    if compression:
-        compression = np.vectorize(compression)
     # Extract features
     _features = ao.dataset.audio.features(
         data,
         frame_samples=frame_samples,
         extract=extract,
-        compression=compression
         )
     # Plot features
     if not ax:
@@ -119,7 +117,7 @@ def gammatonegram(
     sample_rate: int,
     frame_samples: int,
     num_features: int,
-    compression: Optional[Callable[[float], float]] = math.log10,
+    transform: Optional[Callable[[float], float]] = math.log10,
     *,
     low_Hz: Optional[int] = None,
     high_Hz: Optional[int] = None,
@@ -138,9 +136,9 @@ def gammatonegram(
 
         num_features (int): Number of gammatone filters to use.
 
-        compression (Callable(float) -> float, optional): Function to be
-        applied to the output of the gammatone filter. Defaults to
-        `math.log10`.
+        transform (Callable(float) -> float, optional): Function to be
+            applied to the output of the gammatone filter. Defaults to
+            `math.log10`.
 
         low_Hz (int, optional): Lowest center frequency to use in a filter.
 
@@ -167,6 +165,7 @@ def gammatonegram(
         num_samples=frame_samples,
         num_features=num_features,
         sample_rate=sample_rate,
+        transform=transform,
         **kwargs
         )
     plot, ax = features(
@@ -174,7 +173,6 @@ def gammatonegram(
         sample_rate=sample_rate,
         frame_samples=frame_samples,
         num_features=num_features,
-        compression=compression,
         extract=extract,
         ax=ax,
         pcolormesh_kwargs=pcolormesh_kwargs,

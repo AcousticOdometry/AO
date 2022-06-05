@@ -80,13 +80,14 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
      * @param temporal_integration Temporal integration in seconds.
      */
     GammatoneFilterbank(
-        const size_t num_samples      = 1024,
-        const size_t& num_features    = 64,
-        const int& sample_rate        = 44100,
-        const T& low_Hz               = 100,
-        const T& high_Hz              = 8000,
-        const T& temporal_integration = 0)
-    : Extractor<T>(num_samples, num_features, sample_rate),
+        const size_t num_samples             = 1024,
+        const size_t& num_features           = 64,
+        const int& sample_rate               = 44100,
+        const std::function<T(T)>& transform = [](T x) { return x; },
+        const T& low_Hz                      = 100,
+        const T& high_Hz                     = 8000,
+        const T& temporal_integration        = 0)
+    : Extractor<T>(num_samples, num_features, sample_rate, transform),
       filters(make_filters(low_Hz, high_Hz, num_features, sample_rate)),
       intdecay(std::exp(-1 / (sample_rate * temporal_integration))) {}
 

@@ -3,11 +3,11 @@
 #include <gtest/gtest.h>
 #include <sndfile.h>
 
+#include <filesystem>
 #include <algorithm>
+#include <iostream>
 #include <complex>
 #include <ctime>
-#include <filesystem>
-#include <iostream>
 
 // Audio fixture
 std::filesystem::path AUDIO_PATH =
@@ -39,6 +39,7 @@ TEST(TestExtractor, GammatoneFilterBank) {
         /* num_samples */ num_samples,
         /* num_features */ 64,
         /* sample_rate */ file_info.samplerate,
+        /* transform */ static_cast<float(*)(float)>(std::log10),
         /* low_Hz */ 50,
         /* high_Hz */ 8000);
     std::cout << "Center frequencies: ";
@@ -75,6 +76,7 @@ TEST(TestExtractor, ComputeOverloads) {
         /* num_samples */ num_samples,
         /* num_features */ 64,
         /* sample_rate */ file_info.samplerate,
+        /* transform */ static_cast<float(*)(float)>(std::log10),
         /* low_Hz */ 50,
         /* high_Hz */ 8000);
     std::vector<float> output = extractor.compute(input);

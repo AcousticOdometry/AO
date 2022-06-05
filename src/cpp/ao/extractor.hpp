@@ -29,7 +29,7 @@ template <typename T> class Extractor {
     const size_t num_samples;  // Number of samples in the input signal
     const size_t num_features; // Number of features to extract
     const int sample_rate;     // Samples per second of the input signal [Hz]
-    std::function<T(T)> transform;
+    const std::function<T(T)> transform;
 
     /**
      * @brief Construct a new Extractor object.
@@ -111,7 +111,6 @@ template <typename T> class Extractor {
             features.end(),
             features.begin(),
             this->transform);
-        return features;
     }
 
     /**

@@ -1,6 +1,8 @@
 #include "ao/extractor.hpp"
 
 #include <pybind11/pybind11.h>
+
+#include <pybind11/functional.h>
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
@@ -19,9 +21,9 @@ class PyExtractor : public Extractor<double> {
             void,      /* Return type */
             Extractor, /* Parent class */
             compute,   /* Name of function in C++ (must match Python name) */
+            /* Argument(s) */
             input,
-            output /* Argument(s) */
-        );
+            output);
     }
 };
 
@@ -33,13 +35,16 @@ void declareExtractor(py::module& mod) {
     // class, creating pure python extractors at the cost of performance
     py::class_<Extractor<double>, PyExtractor>(modExtractor, "Extractor")
         .def(
-            py::init<size_t, size_t, int>(),
+            py::init<size_t, size_t, int, std::function<double(double)>>(),
             "num_samples"_a  = 1024,
             "num_features"_a = 64,
-            "sample_rate"_a  = 44100)
+            "sample_rate"_a  = 44100,
+            "transform"_a    = py::cpp_function([](double x) { return x; }))
         .def(
             "__call__",
-            &GammatoneFilterbank<double>::operator(),
+            static_cast<std::vector<double> (Extractor<double>::*)(
+                const std::vector<double>&) const>(
+                &Extractor<double>::operator()),
             "input"_a,
             py::return_value_policy::move);
     // Bind the Gammatone Filterbank as a subclass of Extractor
@@ -47,10 +52,19 @@ void declareExtractor(py::module& mod) {
         py::class_<GammatoneFilterbank<double>, Extractor<double>>(
             modExtractor, "GammatoneFilterbank")
             .def(
-                py::init<size_t, size_t, int, double, double, double>(),
-                "num_samples"_a          = 1024,
-                "num_features"_a         = 64,
-                "sample_rate"_a          = 44100,
+                py::init<
+                    size_t,
+                    size_t,
+                    int,
+                    std::function<double(double)>,
+                    double,
+                    double,
+                    double>(),
+                "num_samples"_a  = 1024,
+                "num_features"_a = 64,
+                "sample_rate"_a  = 44100,
+                "transform"_a    = py::cpp_function(
+                    static_cast<double (*)(double)>(std::log10)),
                 "low_Hz"_a               = 50,
                 "high_Hz"_a              = 8000,
                 "temporal_integration"_a = 0)

@@ -26,6 +26,7 @@ TEST(TestInference, LibTorch) {
         /* num_samples */ num_samples,
         /* num_features */ 256,
         /* sample_rate */ 44100,
+        /* transform */ static_cast<float(*)(float)>(std::log10),
         /* low_Hz */ 50,
         /* high_Hz */ 8000);
     extractors.push_back(&extractor);

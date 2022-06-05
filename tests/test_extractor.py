@@ -24,6 +24,10 @@ def test_extractor():
         output = extractor(batch)
         # TODO check output size and that there are no NaN or Inf
 
+# TODO test passing a transform function
+def test_transform():
+    pass
+
 def test_gammatone_filterbank():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
