@@ -4,17 +4,21 @@ import numpy as np
 from typing import List, Callable, Optional
 
 
+def frames(data: np.ndarray, length: int):
+    pass
+
+
 def _segment(
     data: np.ndarray,
     length: int,
-    overlap: int,
+    overlap: int = 0,
     ) -> List[np.ndarray]:
     """Generates segments of the given audio signal.
 
     Args:
         data (np.ndarray): Audio array with shape (n_samples, n_channels)
         length (int): Length of the segments in samples
-        overlap (int): Overlap between sements  in samples
+        overlap (int): Overlap between segments in samples
 
     Returns:
         List[np.ndarray]: List of segments with shape (length, n_channels)
@@ -83,7 +87,7 @@ def features(
     """
     f = np.vstack([
         extract(frame.mean(axis=1))
-        for frame in _segment(data, frame_samples, 0)
+        for frame in frames(data, frame_samples)
         ]).transpose()
     # Compress features
     if compression:

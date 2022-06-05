@@ -48,6 +48,7 @@ template <typename T> class AO {
      */
     AO(const std::filesystem::path& model_path,
        const std::vector<extractor::Extractor<T>*>& extractors,
+    // TODO compressors
        const size_t& num_frames,
        const std::string& device_string = "cpu")
     : extractors(extractors),
@@ -64,7 +65,7 @@ template <typename T> class AO {
                 throw std::runtime_error(fmt::format(
                     "Provided extractors with different number of input "
                     "samples: {} != {}",
-                    extractor->num_features,
+                    extractor->num_samples,
                     num_samples));
             }
             if (extractor->num_features != num_features) {
@@ -102,6 +103,7 @@ template <typename T> class AO {
         // Compute features and insert them on the model input tensor
         for (int i = 0; i < this->extractors.size(); i++) {
             this->extractors[i]->compute(samples, this->_temp_features);
+            // TODO compress
             // Replace the first column with new features
             this->_features.index_put_(
                 {0, i, torch::indexing::Slice(), 0},
