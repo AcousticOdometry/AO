@@ -49,6 +49,7 @@ template <typename T> class AO {
     AO(const std::filesystem::path& model_path,
        const std::vector<extractor::Extractor<T>*>& extractors,
        const size_t& num_frames,
+       // TODO torch::device instead of string
        const std::string& device_string = "cpu")
     : extractors(extractors),
       // TODO hardcoded prediction size

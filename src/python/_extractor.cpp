@@ -46,7 +46,11 @@ void declareExtractor(py::module& mod) {
                 const std::vector<double>&) const>(
                 &Extractor<double>::operator()),
             "input"_a,
-            py::return_value_policy::move);
+            py::return_value_policy::move)
+        .def_readonly("num_samples", &Extractor<double>::num_samples)
+        .def_readonly("num_features", &Extractor<double>::num_features)
+        .def_readonly("sample_rate", &Extractor<double>::sample_rate)
+        .def_readonly("transform", &Extractor<double>::transform);
     // Bind the Gammatone Filterbank as a subclass of Extractor
     auto gammatone_filterbank =
         py::class_<GammatoneFilterbank<double>, Extractor<double>>(
