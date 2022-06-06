@@ -163,3 +163,9 @@ pytest
 
 We try to use the following style guide for `pybind11`
 https://developer.lsst.io/pybind11/style.html
+
+### Mount Google Drive in Windows Subsystem for Linux
+
+```
+sudo mount -t drvfs G: /mnt/g
+```

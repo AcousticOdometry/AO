@@ -14,7 +14,7 @@ def test_extractor(audio_data, frame_duration, num_features):
     data, fs = audio_data
     num_samples = int(frame_duration / 1000 * fs)  # samples per frame
     extractor = ao.extractor.GammatoneFilterbank(num_samples, num_features, fs)
-    for frame in ao.dataset.audio.frames(data, num_samples):
+    for frame in ao.dataset.audio._frames(data, num_samples):
         # TODO do not average channels, use extractor on_channel
         output = extractor(frame.mean(axis=1))
         assert len(output) == num_features

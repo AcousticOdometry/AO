@@ -7,6 +7,17 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+models_folder = os.getenv('AO_MODELS_FOLDER', None)
+model_paths = [
+    Path(models_folder) /
+    "torch-script;name_numpy-arrays;date_2022-05-23;time_13-39-14.pt"
+    ] if models_folder else []
+
+
+@pytest.fixture(scope='session', params=model_paths)
+def model_path(request):
+    return request.param
+
 
 @pytest.fixture(scope='session')
 def output_folder():
@@ -19,13 +30,6 @@ def output_folder():
 def data_folder():
     data_folder = Path(__file__).parent / 'data'
     return data_folder
-
-@pytest.fixture(scope='session')
-def models_folder():
-    models_folder = os.getenv('AO_MODELS_FOLDER', None)
-    if not models_folder:
-        pytest.skip("AO_MODELS_FOLDER not set")
-    return models_folder
 
 
 @pytest.fixture(
