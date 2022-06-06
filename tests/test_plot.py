@@ -6,15 +6,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-audio_urls = [
-    r"https://staffwww.dcs.shef.ac.uk/people/N.Ma/resources/ratemap/t29_lwwj2n_m17_lgwe7s.wav",
-    ]
-
-
-@pytest.fixture(params=range(len(audio_urls)))
-def audio_data(request):
-    return ao.io.wave_read(audio_urls[request.param])
-
 
 @pytest.fixture()
 def savefig(request, output_folder):
@@ -48,9 +39,12 @@ def test_gammatonegram(audio_data, savefig):
         num_features=64,
         low_Hz=50,
         high_Hz=8000,
-        temporal_integration=8 / 1000, # [s]
+        temporal_integration=8 / 1000,  # [s]
         ax=ax,
-        pcolormesh_kwargs={'cmap': 'jet', 'vmin': -0.5},
+        pcolormesh_kwargs={
+            'cmap': 'jet',
+            'vmin': -0.5
+            },
         )
     ax.set_title('Ratemap')
     xlow, xhigh = ax.get_xlim()

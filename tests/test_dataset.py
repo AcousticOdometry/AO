@@ -28,13 +28,13 @@ class TestAudio:
                 ),
             ]
         )
-    def test_segment(self, audio0, segment_duration, overlap_ratio):
+    def test_segment(self, audio_data, segment_duration, overlap_ratio):
         # Check that the overlapping between segments is correct
         segment_overlap = int(segment_duration * overlap_ratio)
         last_segment = None
         start = 0
         for segment in audio.segment(
-            *audio0,
+            *audio_data,
             duration=segment_duration,
             overlap=segment_overlap,
             ):
@@ -49,8 +49,8 @@ class TestAudio:
             last_segment = segment.copy()
             start = end - segment_overlap
         # Assert that there are no segments remaining
-        audio_duration = audio0[0].shape[0] / audio0[1]
+        audio_duration = audio_data[0].shape[0] / audio_data[1]
         assert audio_duration - end < segment_duration
         
 
-    # TODO def test_features(self, audio0):
+    # TODO def test_features(self, audio_data):

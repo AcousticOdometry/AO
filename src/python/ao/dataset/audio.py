@@ -3,13 +3,12 @@ import numpy as np
 from typing import List, Callable, Optional
 
 
-# ? TODO duration ?
-def frames(data: np.ndarray, length: int):
-    """Splits the giben audio signal in  non overlapping frames.
+def _frames(data: np.ndarray, length: int) -> List[np.ndarray]:
+    """Splits the given audio signal in  non overlapping frames.
 
     Args:
         data (np.ndarray): Audio array with shape (n_samples, n_channels)
-        length (int): Length of the segments in samples
+        length (int): Length of the frames in samples
 
     Returns:
         List[np.ndarray]: List of frames with shape (length, n_channels)
@@ -17,6 +16,21 @@ def frames(data: np.ndarray, length: int):
     n_samples, _ = data.shape  # ! Will fail with a badly shaped data array
     num_frames = int(n_samples / length)
     return [data[n * length:(n + 1) * length, :] for n in range(num_frames)]
+
+
+def frames(data: np.ndarray, sample_rate: int,
+           duration: int) -> List[np.ndarray]:
+    """Splits the given audio signal in  non overlapping frames.
+
+    Args:
+        data (np.ndarray): Audio array with shape (n_samples, n_channels)
+        sample_rate (int): Frequency of samples in the audio signal [Hz]
+        duration (int): Length of the frames in milliseconds
+
+    Returns:
+        List[np.ndarray]: List of frames with shape (length, n_channels)
+    """
+    return _frames(data, int(duration / 1000 * sample_rate))
 
 
 def _segment(
@@ -92,8 +106,9 @@ def features(
             (int(n_samples / frame_samples), n_features) where n_features is
             determined by the extract function.
     """
+    # TODO do not average channels
     f = np.vstack([
-        extract(frame.mean(axis=1)) for frame in frames(data, frame_samples)
+        extract(frame.mean(axis=1)) for frame in _frames(data, frame_samples)
         ]).transpose()
     return f
 
