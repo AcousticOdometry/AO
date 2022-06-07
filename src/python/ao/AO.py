@@ -37,7 +37,7 @@ class AO:
         self.num_frames = num_frames
         self.device = device
         self.model = torch.jit.load(model_path, map_location=self.device)
-        self.features = torch.empty(
+        self.features = torch.zeros(
             [1, len(self.extractors), self.num_features, self.num_frames],
             device=self.device,
             )
