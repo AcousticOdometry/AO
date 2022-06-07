@@ -44,6 +44,9 @@ class AO:
         # TODO allocate with number of labels
         self.prediction = torch.empty(6, device=self.device)
 
+    def __str__(self) -> str:
+        return self.model_path.stem
+
     def update(self, samples: np.ndarray) -> torch.Tensor:
         for i, extractor in enumerate(self.extractors):
             self.features[0, i, :, 0] = torch.as_tensor(extractor(samples))
