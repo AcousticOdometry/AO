@@ -26,6 +26,7 @@ template <typename T> class AO {
     const size_t num_samples;
     const torch::Tensor& features;   // Read only model input tensor
     const torch::Tensor& prediction; // Read only model output tensor
+    const torch::Device& device;
 
     protected:
     torch::jit::script::Module model;
@@ -44,19 +45,20 @@ template <typename T> class AO {
      * @param extractors Vector of extractor pointers that will be called with
      * the input signal to extract features as channels for the model input.
      * @param num_frames Number of frames to keep rolling in the model input.
-     * @param device_string Name of the device to be used.
+     * @param device Device to run the model on. Defaults to cpu.
      */
     AO(const std::filesystem::path& model_path,
        const std::vector<extractor::Extractor<T>*>& extractors,
        const size_t& num_frames,
-       // TODO torch::device instead of string
-       const std::string& device_string = "cpu")
+       const torch::Device& device = torch::Device("cpu"))
     : extractors(extractors),
       // TODO hardcoded prediction size
       _prediction(torch::zeros({1})),
       prediction(_prediction),
+      device(device),
       features(_features),
       num_frames(num_frames),
+      // TODO this crashes if extractors is empty
       num_features(extractors[0]->num_features),
       num_samples(extractors[0]->num_samples) {
         // Assert all extractors have the same number of frames and samples
@@ -78,7 +80,7 @@ template <typename T> class AO {
         }
         // Load model
         // TODO test load on GPU
-        model = torch::jit::load(model_path, torch::Device(device_string));
+        model = torch::jit::load(model_path.string(), this->device);
         // Allocate memory for the model input tensor
         // ? tensor with type T ?
         _features = torch::empty({

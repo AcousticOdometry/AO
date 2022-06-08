@@ -45,6 +45,7 @@ find_package(fmt CONFIG REQUIRED)
 
 if(NOT BUILD_PYTHON_API) # Python API will not
     message(STATUS "Building library with libtorch")
+    set(WITH_LIBTORCH TRUE)
     add_definitions(-DWITH_LIBTORCH)
     find_package(Torch QUIET)
     if(NOT Torch_FOUND)
@@ -86,14 +87,15 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE
         fmt::fmt
+        # Do not need to make this conditional, variables are empty
         "${TORCH_LIBRARIES}"
         "${TORCH_CUDA_LIBRARIES}"
 )
 
-# Pytorch: The following code block is suggested to be used on Windows.
-# According to https://github.com/pytorch/pytorch/issues/25457, the DLLs need
-# to be copied to avoid memory errors.
-if(MSVC)
+if (WITH_LIBTORCH AND MSVC)
+    # Pytorch: The following code block is suggested to be used on Windows.
+    # According to https://github.com/pytorch/pytorch/issues/25457, the DLLs
+    # need to be copied to avoid memory errors.
     file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
     add_custom_command(TARGET ${PROJECT_NAME}
         POST_BUILD
@@ -101,7 +103,7 @@ if(MSVC)
             ${TORCH_DLLS}
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
     )
-endif(MSVC)
+endif()
 
 # ---------------------------- Build library tests ----------------------------
 if(BUILD_TESTS)

@@ -1,8 +1,7 @@
 message(STATUS "Build Python API")
 
-message(STATUS "Python executable: ${PYTHON_EXECUTABLE}")
-
 if(SKBUILD)
+    message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
     # Scikit-Build does not add your site-packages to the search path
     # automatically, so we need to add the pybind11 specific directory here.
     execute_process(
