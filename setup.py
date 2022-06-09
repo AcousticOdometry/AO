@@ -7,13 +7,13 @@ from setuptools import find_packages
 
 try:
     from skbuild import setup
-except ImportError:
+except ImportError as e:
     print(
         "Please update pip, you need pip 10 or greater,\n or you need to "
         "install the PEP 518 requirements in pyproject.toml yourself",
         file=sys.stderr,
     )
-    raise
+    raise e
 
 PROJECT_SOURCE_DIR = Path(__file__).parent
 
@@ -82,7 +82,7 @@ setup(
     # Extra setuptools keywords:
     # https://setuptools.pypa.io/en/latest/userguide/keywords.html
     install_requires=[
-        "requests", "numpy", "matplotlib", "pyyaml", "python-dotenv", 
+        "requests", "numpy", "matplotlib", "pyyaml", "python-dotenv", "pandas",
         "torch", "torchvision", "torchaudio",
         ],
     python_requires=">=3.7",

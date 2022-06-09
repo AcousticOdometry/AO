@@ -5,7 +5,7 @@ import numpy as np
 
 from matplotlib import pyplot as plt
 from matplotlib.collections import QuadMesh
-from typing import Tuple, Callable, Optional
+from typing import List, Tuple, Dict, Callable, Optional
 
 
 def signal(
