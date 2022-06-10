@@ -35,6 +35,7 @@ def signal(
 def features(
     data: np.ndarray,
     sample_rate: int,
+    # TODO simplify by passing extractor directly
     frame_samples: int,
     num_features: int,
     transform: Optional[Callable[[float], float]] = math.log10,

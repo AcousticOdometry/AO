@@ -1,5 +1,7 @@
 import pandas as pd
 
+from typing import Dict
+
 # TODO
 def odometry(
     odom: pd.DataFrame,

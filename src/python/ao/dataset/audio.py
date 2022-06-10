@@ -89,7 +89,7 @@ def segment(
 def features(
     data: np.ndarray,
     frame_samples: int,
-    *,
+    # TODO accept lists of extractors
     extract: Callable[[np.ndarray], np.ndarray],
     ) -> np.ndarray:
     """Extracts features from the given audio signal.
