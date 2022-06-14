@@ -126,7 +126,7 @@ def evaluation(
             evaluation.index.to_numpy(), evaluation[col].to_numpy(),
             **plot_kwargs
             )[0]
-        if col in show_mean_on:
+        if any([c in col for c in show_mean_on]):
             ax.axhline(
                 evaluation[col].mean(),
                 color=line.get_color(),

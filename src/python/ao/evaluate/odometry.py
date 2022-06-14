@@ -66,11 +66,17 @@ def odometry(
     sync_gt_tx = np.interp(ts, gt_ts, ground_truth['tx'].to_numpy())
     sync_gt_X = np.interp(ts, gt_ts, ground_truth['X'].to_numpy())
     evaluation = pd.DataFrame(index=ts)
-    evaluation['ATE'] = np.absolute(sync_gt_tx - odom['tx'].to_numpy())
+    evaluation[
+        "Absolute Translation Error (ATE)\n"
+        f"{odom.index.to_series().diff().mean():.3f}s between estimations"
+        ] = np.absolute(sync_gt_tx - odom['tx'].to_numpy())
     rel_X = odom['X'] - np.interp(ts - delta_seconds, ts, odom['X'])
     sync_gt_rel_X = sync_gt_X - np.interp(ts - delta_seconds, ts, sync_gt_X)
-    evaluation['RPE'] = np.absolute(sync_gt_rel_X - rel_X.to_numpy())
-    evaluation['APE'] = np.absolute(sync_gt_X - odom['X'].to_numpy())
+    evaluation[f"Relative Position Error (RPE)\n{delta_seconds}s windows"
+               ] = np.absolute(sync_gt_rel_X - rel_X.to_numpy())
+    evaluation['Absolute Position Error (APE)'] = np.absolute(
+        sync_gt_X - odom['X'].to_numpy()
+        )
     return evaluation
 
 
