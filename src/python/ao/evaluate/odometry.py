@@ -1,9 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from typing import Dict, List, Tuple
-
-
 def generate_wheel_odometry(
     measurements: pd.Series,
     wheel_radius: float,
@@ -38,7 +35,6 @@ def generate_wheel_odometry(
     return wheel_odom
 
 
-# TODO
 def odometry(
     odom: pd.DataFrame,
     ground_truth: pd.DataFrame,
@@ -77,17 +73,5 @@ def odometry(
     evaluation['Absolute Position Error (APE)'] = np.absolute(
         sync_gt_X - odom['X'].to_numpy()
         )
+    # TODO Position error with percentage of the total movement
     return evaluation
-
-
-def odometry_comparison(
-    odoms: Dict[str, pd.DataFrame],
-    ground_truth: pd.DataFrame,
-    # TODO refine
-    metrics: List[Tuple[str, str]] = [('ATE', 'mean'), ('APE', 'max'),
-                                      ('RPE', 'mean')],
-    *,
-    delta_seconds: float = 1,
-    ) -> pd.DataFrame:
-
-    raise NotImplementedError()
