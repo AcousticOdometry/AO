@@ -1,7 +1,9 @@
+from operator import index
 import ao
 
 import os
 import pytest
+import pandas as pd
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -45,3 +47,18 @@ def audio_data(data_folder, request):
     if not url.startswith('http'):
         url = data_folder / url
     return ao.io.wave_read(url)
+
+
+@pytest.fixture(scope='session')
+def odometry_estimations(data_folder) -> pd.DataFrame:
+    return [
+        pd.read_csv(f, index_col='timestamp')
+        for f in sorted((data_folder / 'odometry').glob('*.odometry.csv'))
+        ]
+
+
+@pytest.fixture(scope='session')
+def odometry_ground_truth(data_folder) -> pd.DataFrame:
+    return pd.read_csv(
+        data_folder / 'odometry' / 'ground_truth.csv', index_col='timestamp'
+        )
