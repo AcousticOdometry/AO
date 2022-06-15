@@ -100,6 +100,7 @@ def odometry_comparison(
 def evaluation(
     data: pd.DataFrame,
     ground_truth: Optional[pd.DataFrame] = None,
+    evaluate_kwargs: dict = {},
     *,
     axs: Optional[List[plt.Axes]] = None,
     show_mean_on: List[str] = ['ATE', 'RPE'],
@@ -111,7 +112,9 @@ def evaluation(
         # Assume that the provided data is directly the evaluation
         evaluation = data
     else:
-        evaluation = ao.evaluate.odometry(data, ground_truth)
+        evaluation = ao.evaluate.odometry(
+            data, ground_truth, **evaluate_kwargs
+            )
     if axs is None:
         fig, axs = plt.subplots(1, len(evaluation.columns))
     if len(axs) != len(evaluation.columns):
@@ -142,6 +145,7 @@ def evaluation(
 def evaluation_comparison(
     plots: List[Tuple[pd.DataFrame, Union[dict, str]]],
     ground_truth: Optional[pd.DataFrame] = None,
+    evaluate_kwargs: dict = {},
     *,
     axs: Optional[List[plt.Axes]] = None,
     suptitle: Optional[str] = None,
@@ -153,7 +157,13 @@ def evaluation_comparison(
     end_timestamp = max([odom.index.max() for odom, _ in plots])
     # Plot
     for data, plot_kwargs in plots:
-        fig, axs = evaluation(data, ground_truth, axs=axs, **plot_kwargs)
+        fig, axs = evaluation(
+            data,
+            ground_truth,
+            evaluate_kwargs=evaluate_kwargs,
+            axs=axs,
+            **plot_kwargs
+            )
     # Format X axis
     for ax in axs:
         ax.legend()
