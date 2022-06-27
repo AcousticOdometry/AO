@@ -5,7 +5,7 @@ import pytest
 import warnings
 import numpy as np
 
-# TODO test overide Extractor
+# TODO test override Extractor
 
 
 @pytest.mark.parametrize('frame_duration', [1, 10, 100, 1000])
@@ -15,12 +15,11 @@ def test_extractor(audio_data, frame_duration, num_features):
     num_samples = int(frame_duration / 1000 * fs)  # samples per frame
     extractor = ao.extractor.GammatoneFilterbank(num_samples, num_features, fs)
     for frame in ao.dataset.audio._frames(data, num_samples):
-        # TODO do not average channels, use extractor on_channel
-        output = extractor(frame.mean(axis=1))
+        output = extractor(frame)
         assert len(output) == num_features
 
 
-@pytest.mark.parametrize('frame_duration', [100])
+@pytest.mark.parametrize('frame_duration', [10, 100])
 @pytest.mark.parametrize('num_features', [256])
 def test_transform(audio_data, frame_duration, num_features):
     data, fs = audio_data
@@ -32,8 +31,8 @@ def test_transform(audio_data, frame_duration, num_features):
         num_samples, num_features, fs, lambda x: math.log10(x)
         )
     for frame in ao.dataset.audio.frames(data, fs, frame_duration):
-        raw = no_transform(frame.mean(axis=1))
-        transformed = transform_log10(frame.mean(axis=1))
+        raw = no_transform(frame)
+        transformed = transform_log10(frame)
         assert all([r != t for r, t in zip(raw, transformed)])
         assert all(np.log10(raw) == transformed)
 

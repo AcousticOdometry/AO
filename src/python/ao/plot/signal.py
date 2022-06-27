@@ -14,7 +14,7 @@ def signal(
     *,
     ax: plt.Axes = None,
     ) -> plt.Axes:
-    num_samples, num_channels = data.shape  # ! This might fail if input is 3D
+    num_channels, num_samples = data.shape  # ! This might fail if input is 3D
     if not ax:
         _, ax = plt.subplots()
     # Compute time vector
@@ -22,7 +22,7 @@ def signal(
     for channel in range(num_channels):
         # Plot channel
         ax.plot(
-            time, data[:, channel], linewidth=0.5, label=f"Channel {channel}"
+            time, data[channel, :], linewidth=0.5, label=f"Channel {channel}"
             )
     # Format axes
     if num_channels > 1:
@@ -35,14 +35,9 @@ def signal(
 def features(
     data: np.ndarray,
     sample_rate: int,
-    # TODO simplify by passing extractor directly
-    frame_samples: int,
-    num_features: int,
-    transform: Optional[Callable[[float], float]] = math.log10,
+    extractors: List[ao.extractor.Extractor],
     *,
-    extract: Optional[Callable[[np.array], np.array]] = None,
-    extractor: ao.extractor.Extractor = ao.extractor.GammatoneFilterbank,
-    ax: plt.Axes = None,
+    axs: List[plt.Axes] = None,
     pcolormesh_kwargs: dict = {},
     **extractor_kwargs,
     ) -> Tuple[QuadMesh, plt.Axes]:
@@ -53,20 +48,8 @@ def features(
 
         sample_rate (int): Samples per second of the input signal [Hz].
         
-        frame_samples (int): Number of samples per frame.
-
-        num_features (int): Number of features to extract per frame.
-
-        extract (Callable(array-like) -> array-like, optional): Function that
-            extracts features from a signal frame. If not provided it will be
-            constructed using `extractor`. Defaults to None.
-
-        extractor (ao.extractor.Extractor): Function factory for `extract`.
-            Ignored if `extract` is provided. Defaults to
-            ao.extractor.GammatoneFilterbank.
-
-        transform (Callable(float) -> float, optional): Function to be
-            applied to the extracted features. Defaults to `math.log10`.
+        extractors (List[ao.extractor.Extractor]): Feature extractor, it will
+            be applied to each frame.
 
         ax (plt.Axes, optional): Axes where to plot the gammatonegram. Defaults
             to None.
@@ -80,37 +63,29 @@ def features(
         Tuple[QuadMesh, plt.Axes]: Tuple containing the colormap object and the
         axes containing it.
     """
-    # Initialise the extract function
-    if not extract:
-        extract = extractor(
-            num_samples=frame_samples,
-            num_features=num_features,
-            sample_rate=sample_rate,
-            transform=transform,
-            **extractor_kwargs
-            )
+    if not isinstance(extractors, list):
+        extractors = [extractors]
     # Extract features
-    _features = ao.dataset.audio.features(
-        data,
-        frame_samples=frame_samples,
-        extract=extract,
-        )
+    _features = ao.dataset.audio.features(data, extractors=extractors)
     # Plot features
-    if not ax:
-        _, ax = plt.subplots()
-    plot = ax.pcolormesh(_features, **pcolormesh_kwargs)
-    # Add feature axis
-    ax.set_yticks(np.linspace(0, num_features, 4))
-    ax.set_ylabel("Features [-]")
-    # Add time axis
-    xlim = ax.get_xlim()
-    ax.set_xticks(ax.get_xticks())
-    ax.set_xticklabels([
-        f"{x * frame_samples / sample_rate}" for x in ax.get_xticks()
-        ])
-    ax.set_xlim(xlim)
-    ax.set_xlabel("Time [s]")
-    return plot, ax
+    if not axs:
+        _, axs = plt.subplots(len(extractors), 1, sharex=True, squeeze=False)
+        axs = axs.flatten()
+    for i, ax in enumerate(axs):
+        plot = ax.pcolormesh(_features[i, :, :], **pcolormesh_kwargs)
+        # Add feature axis
+        ax.set_yticks(np.linspace(0, extractors[0].num_features, 4))
+        ax.set_ylabel("Features [-]")
+        # Add time axis
+        xlim = ax.get_xlim()
+        ax.set_xticks(ax.get_xticks())
+        ax.set_xticklabels([
+            f"{x * extractors[0].num_samples / sample_rate}"
+            for x in ax.get_xticks()
+            ])
+        ax.set_xlim(xlim)
+        ax.set_xlabel("Time [s]")
+    return plot, axs
 
 
 def gammatonegram(
@@ -162,24 +137,22 @@ def gammatonegram(
         kwargs['low_Hz'] = low_Hz
     if high_Hz is not None:
         kwargs['high_Hz'] = high_Hz
-    extract = ao.extractor.GammatoneFilterbank(
+    extractor = ao.extractor.GammatoneFilterbank(
         num_samples=frame_samples,
         num_features=num_features,
         sample_rate=sample_rate,
         transform=transform,
         **kwargs
         )
-    plot, ax = features(
+    plot, (ax, *_) = features(
         data=data,
         sample_rate=sample_rate,
-        frame_samples=frame_samples,
-        num_features=num_features,
-        extract=extract,
-        ax=ax,
+        extractors=[extractor],
+        axs=[ax],
         pcolormesh_kwargs=pcolormesh_kwargs,
         )
     # Change feature axis
-    center_frequencies = [f.cf for f in extract.filters]
+    center_frequencies = [f.cf for f in extractor.filters]
     yticks = []
     yticklabels = []
     for ytick in ax.get_yticks().astype(int).tolist():

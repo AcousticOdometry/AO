@@ -1,34 +1,42 @@
+import ao
 import numpy as np
 
 from typing import List, Callable, Optional
 
 
 def _frames(data: np.ndarray, length: int) -> List[np.ndarray]:
-    """Splits the given audio signal in  non overlapping frames.
+    """Splits the given audio signal in non overlapping frames.
 
     Args:
-        data (np.ndarray): Audio array with shape (n_samples, n_channels)
+        data (np.ndarray): Audio array with shape (n_channels, n_samples)
+
         length (int): Length of the frames in samples
 
     Returns:
-        List[np.ndarray]: List of frames with shape (length, n_channels)
+        List[np.ndarray]: List of frames with shape (n_channels, length)
     """
-    n_samples, _ = data.shape  # ! Will fail with a badly shaped data array
+    _, n_samples = data.shape  # ! Will fail with a badly shaped data array
     num_frames = int(n_samples / length)
-    return [data[n * length:(n + 1) * length, :] for n in range(num_frames)]
+    return [data[:, n * length:(n + 1) * length] for n in range(num_frames)]
 
 
-def frames(data: np.ndarray, sample_rate: int,
-           duration: int) -> List[np.ndarray]:
-    """Splits the given audio signal in  non overlapping frames.
+def frames(
+    data: np.ndarray,
+    sample_rate: int,
+    duration: int,
+    ) -> List[np.ndarray]:
+    """Splits the given audio signal in non overlapping frames.
 
     Args:
-        data (np.ndarray): Audio array with shape (n_samples, n_channels)
+        data (np.ndarray): Audio array with shape (n_channels, n_samples)
+
         sample_rate (int): Frequency of samples in the audio signal [Hz]
+
         duration (int): Length of the frames in milliseconds
 
     Returns:
-        List[np.ndarray]: List of frames with shape (length, n_channels)
+        List[np.ndarray]: List of frames with shape (n_channels, length) with
+            length being int(duration / 1000 * sample_rate)
     """
     return _frames(data, int(duration / 1000 * sample_rate))
 
@@ -41,17 +49,20 @@ def _segment(
     """Generates segments of the given audio signal.
 
     Args:
-        data (np.ndarray): Audio array with shape (n_samples, n_channels)
+        data (np.ndarray): Audio array with shape (n_channels, n_samples)
+
         length (int): Length of the segments in samples
+
         overlap (int): Overlap between segments in samples
 
     Returns:
-        List[np.ndarray]: List of segments with shape (length, n_channels)
+        List[np.ndarray]: List of segments with shape (n_channels, length) with
+            length being int(duration / 1000 * sample_rate)
     """
-    n_samples, _ = data.shape  # ! Will fail with a badly shaped data array
+    _, n_samples = data.shape  # ! Will fail with a badly shaped data array
     step = length - overlap
     num_segments = int((n_samples - overlap) / step)
-    return [data[n * step:n * step + length, :] for n in range(num_segments)]
+    return [data[:, n * step:n * step + length] for n in range(num_segments)]
 
 
 def segment(
@@ -64,23 +75,26 @@ def segment(
     validation as well as some basic conversions from milliseconds to samples.
 
     Args:
-        data (np.ndarray): Audio array with shape (n_samples, n_channels)
+        data (np.ndarray): Audio array with shape (n_channels, n_samples)
+
         sample_rate (int): Frequency of samples in the audio signal [Hz]
-        duration (int): Length of the segments in milliseconds
+
+        duration (int): Length of the segments in milliseconds 
+
         overlap (int): Overlap between segments in milliseconds
 
     Raises:
         TypeError: Overlap should not be larger or equal than duration
 
     Returns:
-        List[np.ndarray]: List of segments with shape (length, n_channels)
+        List[np.ndarray]: List of segments with shape (n_channels, length) with
+            length being int(duration / 1000 * sample_rate)
     """
     if overlap >= duration:
         raise TypeError(
             f"Overlap between segments {overlap} must be smaller than the "
             f"segment duration {duration}"
             )
-    # TODO check data array
     segment_samples = int(duration * sample_rate / 1000)
     overlap_samples = int(overlap * sample_rate / 1000)
     return _segment(data, segment_samples, overlap_samples)
@@ -88,57 +102,52 @@ def segment(
 
 def features(
     data: np.ndarray,
-    frame_samples: int,
-    # TODO accept lists of extractors
-    extract: Callable[[np.ndarray], np.ndarray],
+    extractors: List[ao.extractor.Extractor],
     ) -> np.ndarray:
     """Extracts features from the given audio signal.
 
     Args:
-        data (np.ndarray): Audio signal with shape (n_samples, n_channels)
+        data (np.ndarray): Audio signal with shape (n_channels, n_samples)
+
         frame_samples (int): Number of samples in each frame
-        extract (Callable[[np.ndarray], np.ndarray]): Function to extract
-            features, it will be applied to each frame averaged in the channels
-            axis. 
+
+        extractors (List[ao.extractor.Extractor]): Feature extractor, it will
+            be applied to each frame.
 
     Returns:
         np.ndarray: Array of features with shape 
-            (int(n_samples / frame_samples), n_features) where n_features is
-            determined by the extract function.
+            (len(extractors), n_features, int(n_samples / frame_samples)) where
+            n_features and frame_samples is determined by the extractors.
     """
-    # TODO do not average channels
-    f = np.vstack([
-        extract(frame.mean(axis=1)) for frame in _frames(data, frame_samples)
-        ]).transpose()
-    return f
-
-
-def segment_into_features(
-    data: np.ndarray,
-    sample_rate: int,
-    frame_duration: int,
-    segment_duration: Optional[int] = None,
-    segment_overlap: int = 0,
-    *,
-    extract: Callable[[np.ndarray], np.ndarray],
-    ) -> List[np.ndarray]:
-    """Segments the given audio signal and extracts features from each segment.
-
-    Args:
-        data (np.ndarray): Audio signal with shape (n_samples, n_channels)
-        sample_rate (int): Frequency of samples in the audio signal [Hz]
-        frame_duration (int): Length of a feature frame in milliseconds
-        segment_duration (int): Length of a segment duration in milliseconds
-        segment_overlap (int): Overlap between segments. Defaults to 0.
-        extract (Callable[[np.ndarray], np.ndarray]): Function to extract
-            features, it will be applied to each frame averaged in the channels
-            axis. 
-
-    Returns:
-        List[np.ndarray]: List of arrays of features
-    """
-    frame_samples = int(frame_duration * sample_rate / 1000)
-    return [
-        features(s, frame_samples, extract=extract)
-        for s in segment(data, sample_rate, segment_duration, segment_overlap)
-        ]
+    if not isinstance(extractors, list):
+        extractors = [extractors]
+    # Check all extractors are compatible
+    _, n_samples = data.shape
+    n_features = extractors[0].num_features
+    frame_samples = extractors[0].num_samples
+    for extractor in extractors:
+        if n_features != extractor.num_features:
+            raise ValueError(
+                "All extractors must have the same number of output features, "
+                f"{n_features} != {extractor.num_features}"
+                )
+        if frame_samples != extractor.num_samples:
+            raise ValueError(
+                "All extractors must have the same number of frame samples, "
+                f"{frame_samples} != {extractor.num_samples}"
+                )
+        # TODO if n_channels < extractor.on_channel:
+    # Preallocate array for features
+    features = np.empty(
+        (len(extractors), n_features, int(n_samples / frame_samples))
+        )
+    for i, extractor in enumerate(extractors):
+        for j, frame in enumerate(_frames(data, frame_samples)):
+            features[i, :, j] = extractor(frame)
+    return features
+    # TODO benchmark against no preallocation
+    # return np.stack([
+    #     np.column_stack([
+    #         extract(frame) for frame in _frames(data, frame_samples)
+    #         ]) for extract in extractors
+    #     ])
