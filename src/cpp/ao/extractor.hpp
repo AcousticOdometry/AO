@@ -7,14 +7,15 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#include <eigen3/Eigen/Core>
 #include <fmt/core.h>
 
-#include <functional>
 #include <algorithm>
-#include <stdexcept>
-#include <numeric>
-#include <vector>
 #include <array>
+#include <functional>
+#include <numeric>
+#include <stdexcept>
+#include <vector>
 
 namespace ao {
 namespace extractor {
@@ -42,9 +43,9 @@ template <typename T> class Extractor {
      * defines which
      */
     Extractor(
-        const size_t& num_samples  = 1024,
-        const size_t& num_features = 12,
-        const int& sample_rate     = 44100,
+        const size_t& num_samples            = 1024,
+        const size_t& num_features           = 12,
+        const int& sample_rate               = 44100,
         const std::function<T(T)>& transform = [](T x) { return x; }
         // TODO const size_t& on_channel = 0
         )
@@ -130,6 +131,14 @@ template <typename T> class Extractor {
             features.begin(),
             this->transform);
         return features;
+    }
+
+    virtual std::vector<T> operator()(
+        Eigen::Ref<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>
+            input) const {
+        std::vector<T> _input(
+            input.row(0).data(), input.row(0).data() + input.row(0).size());
+        return this->operator()(_input);
     }
 };
 

@@ -2,6 +2,7 @@
 
 #include <pybind11/pybind11.h>
 
+#include <pybind11/eigen.h>
 #include <pybind11/functional.h>
 #include <pybind11/stl.h>
 
@@ -46,6 +47,14 @@ void declareExtractor(py::module& mod) {
                 const std::vector<double>&) const>(
                 &Extractor<double>::operator()),
             "input"_a,
+            py::return_value_policy::move)
+        .def(
+            "__call__",
+            static_cast<std::vector<double> (Extractor<double>::*)(
+                Eigen::Ref<
+                    const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>)
+                            const>(&Extractor<double>::operator()),
+            "input"_a.noconvert(),
             py::return_value_policy::move)
         .def_readonly("num_samples", &Extractor<double>::num_samples)
         .def_readonly("num_features", &Extractor<double>::num_features)

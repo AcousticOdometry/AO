@@ -43,7 +43,7 @@ project(${PROJECT_NAME} VERSION ${VERSION_STRING})
 # TODO refactor into src/cpp/${PROJECT_NAME}/CMakeLists.txt
 find_package(fmt CONFIG REQUIRED)
 
-if(NOT BUILD_PYTHON_API) # Python API will not
+if(NOT BUILD_PYTHON_API) # Python API will not be built
     message(STATUS "Building library with libtorch")
     set(WITH_LIBTORCH TRUE)
     add_definitions(-DWITH_LIBTORCH)

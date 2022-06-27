@@ -46,7 +46,7 @@ def audio_data(data_folder, request):
     url = request.param
     if not url.startswith('http'):
         url = data_folder / url
-    return ao.io.wave_read(url)
+    return ao.io.audio_read(url)
 
 
 @pytest.fixture(scope='session')
