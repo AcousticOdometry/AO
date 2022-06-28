@@ -64,7 +64,6 @@ class TestAudio:
         frame_samples = int(frame_duration / 1000 * sample_rate)
         features = ao.dataset.audio.features(
             data,
-            frame_samples,
             extractors=extractor(
                 num_samples=frame_samples,
                 num_features=num_features,

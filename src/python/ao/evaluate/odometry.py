@@ -52,9 +52,8 @@ def odometry(
             Relative Position Error in seconds. Defaults to 1.
 
     Returns:
-        pd.DataFrame: Evaluated metrics with columns 'ATE', 'APE' and 'RPE'
-            corresponding to 'Absolute Translation Error', 'Absolute Position
-            Error', and 'Relative Position Error' respectively.
+        pd.DataFrame: Evaluated metrics with metrics as columns and timestamps
+            as index.
     """
     ts = odom.index.to_numpy()
     gt_ts = ground_truth.index.to_numpy()

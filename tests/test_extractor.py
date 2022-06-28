@@ -45,3 +45,23 @@ def test_gammatone_filterbank():
             assert isinstance(filter.cf, float)
             assert isinstance(filter.gain, float)
             assert isinstance(filter.a, list)
+
+
+@pytest.mark.parametrize('frame_duration', [10, 100])
+@pytest.mark.parametrize('num_features', [64, 256])
+@pytest.mark.parametrize('on_channel', [-1, 0, 1, 2, 3])
+def test_on_channel(audio_data, frame_duration, num_features, on_channel):
+    data, fs = audio_data
+    num_channels, _ = data.shape
+    if on_channel >= num_channels:
+        pytest.skip(f"Channel {on_channel} is not available")
+    num_samples = int(frame_duration / 1000 * fs)  # samples per frame
+    extractor = ao.extractor.GammatoneFilterbank(
+        num_samples, num_features, fs, on_channel=on_channel
+        )
+    for k, frame in enumerate(ao.dataset.audio._frames(data, num_samples)):
+        # Process frame outside of the extractor
+        f = frame[on_channel, :] if on_channel >= 0 else np.mean(frame, axis=0)
+        np.testing.assert_equal(extractor(frame), extractor(f.tolist()))
+        if k > 20:
+            break

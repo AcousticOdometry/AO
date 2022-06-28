@@ -16,9 +16,9 @@ def test_generate_wheel_odometry(odometry_ground_truth):
 def test_odometry(odometry_estimations, odometry_ground_truth):
     for odom in odometry_estimations:
         evaluation = ao.evaluate.odometry(odom, odometry_ground_truth)
-        assert 'ATE' in evaluation.columns
-        assert 'APE' in evaluation.columns
-        assert 'RPE' in evaluation.columns
+        assert any(['ATE' in col for col in evaluation.columns])
+        assert any(['RPE' in col for col in evaluation.columns])
+        assert any(['APE' in col for col in evaluation.columns])
         assert pd.notna(evaluation).all().all()
 
 

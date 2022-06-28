@@ -1,5 +1,6 @@
 #include "ao/extractor.hpp"
 
+#include <eigen3/Eigen/Core>
 #include <gtest/gtest.h>
 #include <sndfile.h>
 
@@ -31,15 +32,16 @@ TEST(TestExtractor, GammatoneFilterBank) {
     int num_samples = 250;
     SF_INFO file_info;
     SNDFILE* file = sf_open(AUDIO_PATH.string().c_str(), SFM_READ, &file_info);
-    std::vector<float> input(num_samples);
-    sf_read_float(file, input.data(), input.size());
+    std::vector<float> signal(num_samples * file_info.channels);
+    sf_readf_float(file, signal.data(), num_samples);
 
     // Construct extractor
     auto extractor = ao::extractor::GammatoneFilterbank<float>(
         /* num_samples */ num_samples,
         /* num_features */ 64,
         /* sample_rate */ file_info.samplerate,
-        /* transform */ static_cast<float (*)(float)>(std::log10),
+        /* transform */ static_cast<float (*)(float)>(std::log10), // Not used
+        /* on_channel */ 0, // Not using Matrices, this parameter is useless
         /* low_Hz */ 50,
         /* high_Hz */ 8000);
     std::cout << "Center frequencies: ";
@@ -48,14 +50,21 @@ TEST(TestExtractor, GammatoneFilterBank) {
     }
     std::cout << std::endl;
 
-    // Execute extractor
-    std::vector<float> output = extractor.compute(input);
-    EXPECT_EQ(output, extractor.compute(input)); // Test second execution
+    std::vector<float> input(num_samples);
+    for (int channel = 0; channel < file_info.channels; channel++) {
+        for (std::size_t index = 0; index < num_samples; index++) {
+            input[index] = signal[index * file_info.channels + channel];
+        }
+        // Execute extractor
+        std::vector<float> output = extractor.compute(input);
+        EXPECT_EQ(output, extractor.compute(input)); // Test second execution
 
-    // Invalid input (too short)
-    std::vector<float> invalid_input(num_samples - 1);
-    sf_read_float(file, invalid_input.data(), invalid_input.size());
-    EXPECT_THROW(extractor.compute(invalid_input), std::invalid_argument);
+        // Invalid input (too short)
+        EXPECT_THROW(
+            extractor.compute(
+                std::vector<float>(input.begin(), input.end() - 1)),
+            std::invalid_argument);
+    }
 }
 
 /**
@@ -68,8 +77,8 @@ TEST(TestExtractor, ComputeOverloads) {
     int num_samples = 250;
     SF_INFO file_info;
     SNDFILE* file = sf_open(AUDIO_PATH.string().c_str(), SFM_READ, &file_info);
-    std::vector<float> input(num_samples);
-    sf_read_float(file, input.data(), input.size());
+    std::vector<float> signal(num_samples * file_info.channels);
+    sf_readf_float(file, signal.data(), num_samples);
 
     // TODO parametrize with different extractors
     auto extractor = ao::extractor::GammatoneFilterbank<float>(
@@ -77,11 +86,76 @@ TEST(TestExtractor, ComputeOverloads) {
         /* num_features */ 64,
         /* sample_rate */ file_info.samplerate,
         /* transform */ static_cast<float (*)(float)>(std::log10),
+        /* on_channel */ 0, // Not using Matrices, this parameter is useless
         /* low_Hz */ 50,
         /* high_Hz */ 8000);
-    std::vector<float> output = extractor.compute(input);
-    std::transform(
-        output.begin(), output.end(), output.begin(), extractor.transform);
-    // operator()
-    EXPECT_EQ(output, extractor(input));
+
+    std::vector<float> input(num_samples);
+    for (int channel = 0; channel < file_info.channels; channel++) {
+        for (std::size_t index = 0; index < num_samples; index++) {
+            input[index] = signal[index * file_info.channels + channel];
+        }
+        // Compute only won't transform the output features
+        std::vector<float> output = extractor.compute(input);
+        std::transform(
+            output.begin(), output.end(), output.begin(), extractor.transform);
+        // operator()
+        EXPECT_EQ(output, extractor(input));
+    }
+}
+
+// TODO test that the extractor averages the channels depending on the
+// on_channel value
+TEST(TestExtractor, OnChannel) {
+    // TODO parametrize input
+    int num_samples = 250;
+    SF_INFO file_info;
+    SNDFILE* file = sf_open(AUDIO_PATH.string().c_str(), SFM_READ, &file_info);
+    std::vector<float> signal(num_samples * file_info.channels);
+    sf_readf_float(file, signal.data(), num_samples);
+
+    // Build a matrix from the signal
+    Eigen::MatrixXf signal_matrix(file_info.channels, num_samples);
+    for (int channel = 0; channel < file_info.channels; channel++) {
+        for (std::size_t index = 0; index < num_samples; index++) {
+            signal_matrix(channel, index) =
+                signal[index * file_info.channels + channel];
+        }
+    }
+
+    // Test averaging extractor
+    auto extract_average = ao::extractor::GammatoneFilterbank<float>(
+        /* num_samples */ num_samples,
+        /* num_features */ 64,
+        /* sample_rate */ file_info.samplerate,
+        /* transform */ static_cast<float (*)(float)>(std::log10),
+        /* on_channel */ -1);
+
+    std::vector<float> input(num_samples);
+    // Average channels from signal
+    for (std::size_t index = 0; index < num_samples; index++) {
+        input[index] = 0;
+        for (int channel = 0; channel < file_info.channels; channel++) {
+            input[index] += signal[index * file_info.channels + channel];
+        }
+        input[index] /= file_info.channels;
+    }
+    EXPECT_EQ(extract_average(signal_matrix), extract_average(input));
+
+    // Test row extractor
+    for (int channel = 0; channel < file_info.channels; channel++) {
+        auto extract_row = ao::extractor::GammatoneFilterbank<float>(
+            /* num_samples */ num_samples,
+            /* num_features */ 64,
+            /* sample_rate */ file_info.samplerate,
+            /* transform */ static_cast<float (*)(float)>(std::log10),
+            /* on_channel */ channel);
+
+        // Extract channel from signal
+        for (std::size_t index = 0; index < num_samples; index++) {
+            input[index] = signal[index * file_info.channels + channel];
+        }
+
+        EXPECT_EQ(extract_row(signal_matrix), extract_row(input));
+    }
 }
