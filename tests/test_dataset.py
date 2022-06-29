@@ -4,6 +4,49 @@ import pytest
 import numpy as np
 
 
+class TestUtils:
+
+    @pytest.mark.parametrize(
+        "filename_and_result", [
+            (
+                "transform_None;device_laptop-built-in-microphone;shard_000",
+                {
+                    'transform': 'None',
+                    'device': 'laptop-built-in-microphone',
+                    'shard': 0
+                    },
+                ),
+            (
+                "w_30.00;s_-0.30;contact_true;load_5;duration_10;delay_3000;"
+                "date_2022-06-24;time_19-18-08",
+                {
+                    'w': 30,
+                    's': -0.3,
+                    'contact': True,
+                    'load': 5,
+                    'duration': 10,
+                    'delay': 3000,
+                    'date': '2022-06-24',
+                    'time': '19-18-08'
+                    },
+                ),
+            ]
+        )
+    def test_parse_filename(self, filename_and_result):
+        filename, expected_result = filename_and_result
+        params = ao.dataset.utils.parse_filename(filename)
+        assert params == expected_result
+        # Check that the result is reconstructible
+        _filename = ao.dataset.utils.dict_to_filename(params)
+        assert params == ao.dataset.utils.parse_filename(_filename)
+
+    def test_dict_to_filename(self):
+        with pytest.raises(ValueError):
+            ao.dataset.utils.dict_to_filename({'good-key': 'bad_value'})
+        with pytest.raises(ValueError):
+            ao.dataset.utils.dict_to_filename({'bad;key': 'good.value'})
+
+
 class TestAudio:
 
     @pytest.mark.parametrize("segment_duration", [100, 200, 300, 500, 1000])
