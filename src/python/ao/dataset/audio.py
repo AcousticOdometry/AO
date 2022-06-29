@@ -122,7 +122,7 @@ def features(
     if not isinstance(extractors, list):
         extractors = [extractors]
     # Check all extractors are compatible
-    _, n_samples = data.shape
+    n_channels, n_samples = data.shape
     n_features = extractors[0].num_features
     frame_samples = extractors[0].num_samples
     for extractor in extractors:
@@ -136,18 +136,26 @@ def features(
                 "All extractors must have the same number of frame samples, "
                 f"{frame_samples} != {extractor.num_samples}"
                 )
-        # TODO if n_channels < extractor.on_channel:
+        if extractor.on_channel >= n_channels:
+            raise ValueError(
+                f"Extractor {extractor} is applied to a channel not present "
+                f"in the data: {extractor.on_channel} >= {n_channels}"
+                )
     # Preallocate array for features
-    features = np.empty(
-        (len(extractors), n_features, int(n_samples / frame_samples))
-        )
+    num_frames = int(n_samples / frame_samples)
+    features = np.empty((len(extractors), n_features, num_frames))
+    # * Harcoded from `_frames` to avoid recomputing number of frames
+    frames = [
+        data[:, n * frame_samples:(n + 1) * frame_samples]
+        for n in range(num_frames)
+        ]
     for i, extractor in enumerate(extractors):
-        for j, frame in enumerate(_frames(data, frame_samples)):
+        for j, frame in enumerate(frames):
             features[i, :, j] = extractor(frame)
     return features
     # TODO benchmark against no preallocation
     # return np.stack([
     #     np.column_stack([
-    #         extract(frame) for frame in _frames(data, frame_samples)
+    #         extract(frame) for frame in frames
     #         ]) for extract in extractors
     #     ])

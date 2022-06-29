@@ -60,7 +60,8 @@ void declareExtractor(py::module& mod) {
         .def_readonly("num_samples", &Extractor<double>::num_samples)
         .def_readonly("num_features", &Extractor<double>::num_features)
         .def_readonly("sample_rate", &Extractor<double>::sample_rate)
-        .def_readonly("transform", &Extractor<double>::transform);
+        .def_readonly("transform", &Extractor<double>::transform)
+        .def_readonly("on_channel", &Extractor<double>::on_channel);
     // Bind the Gammatone Filterbank as a subclass of Extractor
     auto gammatone_filterbank =
         py::class_<GammatoneFilterbank<double>, Extractor<double>>(
