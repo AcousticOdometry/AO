@@ -83,7 +83,7 @@ setup(
     # https://setuptools.pypa.io/en/latest/userguide/keywords.html
     install_requires=[
         "requests", "numpy", "matplotlib", "pyyaml", "python-dotenv", "pandas",
-        "torch", "torchvision", "torchaudio", "librosa"
+        "torch", "torchaudio", "pytorch-lightning", "librosa"
         ],
     python_requires=">=3.7",
     # When adding `[test]` to your `pip install` command you can install the
