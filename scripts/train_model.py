@@ -10,6 +10,9 @@ function.
 import ao
 from ao.models import CNN
 
+from dataset import get_dataset_shards_and_config
+from gdrive import GDrive
+
 import io
 import os
 import torch
@@ -21,12 +24,8 @@ from pathlib import Path
 from warnings import warn
 from dotenv import load_dotenv
 from typing import Optional, List
-from argparse import ArgumentParser
 
-
-train_split_strategies = {
-
-}
+train_split_strategies = {}
 
 
 class WebDatasetModule(pl.LightningDataModule):
@@ -100,21 +99,26 @@ class WebDatasetModule(pl.LightningDataModule):
     def test_dataloader(self):
         return self.get_dataloader(shards=self.test_shards)
 
+def save_model(model: pl.LightningModule, to: str):
+    raise NotImplementedError
 
 def train_model(
+    name: str,
+    dataset: str,
     output_folder: Path,
-    dataset_folder: Path,
     batch_size: int = 32,
     max_epochs: int = 15,
     is_train_shard: Optional[callable] = None,
     ):
+    shards, config = get_dataset_shards_and_config(dataset)
+    # TODO Filter shards
+    # TODO local_output_folder
     if output_folder.exists():
         warn(f"{output_folder} already exists, model will be overwritten")
     output_folder.mkdir(parents=True, exist_ok=True)
     dataset = WebDatasetModule(dataset_folder=dataset_folder)
     model = CNN(classes=6)
     logger = pl.loggers.TensorBoardLogger(save_dir=output_folder)
-    raise NotImplementedError
     trainer = pl.Trainer(
         max_epochs=max_epochs, logger=logger, default_root_dir=output_folder
         )
@@ -123,6 +127,8 @@ def train_model(
 
 
 if __name__ == '__main__':
+    from argparse import ArgumentParser
+
     load_dotenv()
     parser = ArgumentParser("Train a single Acoustic Odometry model")
     parser.add_argument(
@@ -136,7 +142,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--dataset',
         '-d',
-        type=Path,
+        type=str,
         required=True,
         help=(
             "Path to the dataset. If DATASETS_FOLDER environment variable is "
