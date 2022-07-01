@@ -4,7 +4,6 @@ import ao
 from gdrive import GDrive
 
 import os
-import yaml
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -20,7 +19,7 @@ def get_config_from_gdrive(folder_id: str, gdrive: GDrive) -> dict:
                 )
             key = next(iter(file_params))
             config.setdefault(key, {}).update({
-                file_params[key]: yaml.safe_load(f.GetContentString())
+                file_params[key]: gdrive.yaml_load(f)
                 })
     return config
 
@@ -121,7 +120,7 @@ if __name__ == "__main__":
 
     from argparse import ArgumentParser
 
-    parser = ArgumentParser("Train a single Acoustic Odometry model")
+    parser = ArgumentParser("Test accessibility to a WebDataset")
     parser.add_argument('dataset', type=str)
     args = parser.parse_args()
     print(f"Getting `{args.dataset}` shard list and configuration...")

@@ -1,4 +1,5 @@
 import re
+import yaml
 
 from pathlib import Path
 from typing import Optional
@@ -23,8 +24,8 @@ class GDrive:
             'includeItemsFromAllDrives': True,
             }).GetList()
 
-    def yaml_load(self, file_id: str) -> dict:
-        raise NotImplementedError
+    def yaml_load(self, f: 'pydrive.file.GoogleDriveFile') -> dict:
+        return yaml.safe_load(f.GetContentString())
 
     @staticmethod
     def get_folder_id(url: str) -> Optional[str]:
