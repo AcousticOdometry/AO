@@ -24,11 +24,18 @@ from typing import Optional, List
 from argparse import ArgumentParser
 
 
+train_split_strategies = {
+
+}
+
+
 class WebDatasetModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        dataset_folder: Path,
+        train_shards: List[Path],
+        test_shards: List[Path] = [],
+        val_shards: List[Path] = [],
         batch_size: int = 6,
         exclude_devices: List[str] = [
             'rode-videomic-ntg-top', 'rode-smartlav-top'
@@ -37,6 +44,14 @@ class WebDatasetModule(pl.LightningDataModule):
         ):
         super().__init__()
         self.dataset_folder = dataset_folder
+        # Get dataset config
+        self.dataset_config = {}
+        for config_file in dataset_folder.glob('*.yaml'):
+            file_params = ao.dataset.parse_filename(config_file.stem)
+            key = next(iter(file_params))
+            self.dataset_config.setdefault(key, {}).update({
+                file_params[key]: ao.io.yaml_load(config_file)
+                })
         self.batch_size = batch_size
         self.exclude_devices = exclude_devices
         self.get_features = torch.from_numpy
@@ -91,6 +106,7 @@ def train_model(
     dataset_folder: Path,
     batch_size: int = 32,
     max_epochs: int = 15,
+    is_train_shard: Optional[callable] = None,
     ):
     if output_folder.exists():
         warn(f"{output_folder} already exists, model will be overwritten")
@@ -98,6 +114,7 @@ def train_model(
     dataset = WebDatasetModule(dataset_folder=dataset_folder)
     model = CNN(classes=6)
     logger = pl.loggers.TensorBoardLogger(save_dir=output_folder)
+    raise NotImplementedError
     trainer = pl.Trainer(
         max_epochs=max_epochs, logger=logger, default_root_dir=output_folder
         )
@@ -143,6 +160,7 @@ if __name__ == '__main__':
     if args.dataset.is_absolute():
         dataset_folder = args.dataset
     else:
+        # TODO check if url
         datasets_folder = os.getenv('DATASETS_FOLDER')
         if datasets_folder is None:
             raise ValueError(
