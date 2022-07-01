@@ -23,9 +23,23 @@ import pytorch_lightning as pl
 from pathlib import Path
 from warnings import warn
 from dotenv import load_dotenv
-from typing import Optional, List
+from typing import Optional, List, Dict, Tuple
 
-train_split_strategies = {}
+def split_shards(shards: Dict[str, dict]) -> Tuple[List[str], List[str]]:
+    train = []
+    test = []
+    for url, params in shards.items():
+        if params['transform'] != 'None':
+            continue
+        elif params['device'] in ['rode-videomic-ntg-top', 'rode-smartlav-top']
+            test.append(url)
+        else:
+            train.append(url)
+    return train, test
+
+train_split_strategies = {
+    'base': split_shards
+}
 
 
 class WebDatasetModule(pl.LightningDataModule):
@@ -82,7 +96,7 @@ class WebDatasetModule(pl.LightningDataModule):
 
     def get_dataloader(self, shards):
         return wds.DataPipeline(
-            wds.SimpleShardList([f"file:{path}" for path in shards]),
+            wds.SimpleShardList(shards),
             wds.tarfile_to_samples(),
             # wds.shuffle(5000),
             wds.decode(
@@ -99,18 +113,21 @@ class WebDatasetModule(pl.LightningDataModule):
     def test_dataloader(self):
         return self.get_dataloader(shards=self.test_shards)
 
+
 def save_model(model: pl.LightningModule, to: str):
     raise NotImplementedError
+
 
 def train_model(
     name: str,
     dataset: str,
+    split_shards: Callable[[Dict[str, dict]], Tuple[List[str], List[str]]],
     output_folder: Path,
     batch_size: int = 32,
     max_epochs: int = 15,
-    is_train_shard: Optional[callable] = None,
     ):
     shards, config = get_dataset_shards_and_config(dataset)
+    test_shards, train_shards = split_shards(shards)
     # TODO Filter shards
     # TODO local_output_folder
     if output_folder.exists():
@@ -144,6 +161,7 @@ if __name__ == '__main__':
         '-d',
         type=str,
         required=True,
+        # TODO gdrive is also accepted
         help=(
             "Path to the dataset. If DATASETS_FOLDER environment variable is "
             "set, the path provided here can be relative to that folder."
@@ -162,20 +180,6 @@ if __name__ == '__main__':
         )
     args = parser.parse_args()
 
-    # Parse dataset argument
-    if args.dataset.is_absolute():
-        dataset_folder = args.dataset
-    else:
-        # TODO check if url
-        datasets_folder = os.getenv('DATASETS_FOLDER')
-        if datasets_folder is None:
-            raise ValueError(
-                "Dataset full path can't be resolved. Provide a the full path "
-                f"of a dataset (instead of `{args.dataset}`) or set the "
-                "DATASETS_FOLDER environment variable."
-                )
-        dataset_folder = Path(datasets_folder) / args.dataset
-
     # Parse output argument
     if args.output is None:
         raise ValueError(
@@ -185,6 +189,9 @@ if __name__ == '__main__':
     output_folder = args.output / args.name
 
     train_model(
+        name=args.name,
+        dataset=args.dataset,
+        # TODO this should be an argument
+        split_shards=split_shards,
         output_folder=output_folder,
-        dataset_folder=dataset_folder,
         )

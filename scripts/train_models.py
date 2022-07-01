@@ -10,6 +10,7 @@ which model should be trained, with which dataset, and with which parameters.
 """
 from train_model import train_model
 
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 
