@@ -11,7 +11,9 @@ which model should be trained, with which dataset, and with which parameters.
 from train_model import train_model
 
 import os
+
 from pathlib import Path
+from warnings import warn
 from dotenv import load_dotenv
 
 
@@ -24,8 +26,11 @@ if __name__ == '__main__':
         'base_cnn': {'dataset': 'base'}
     }
     for name, kwargs in models_to_train.items():
-        train_model(
-            dataset_folder=datasets_folder / kwargs.pop('dataset'),
-            output_folder=models_folder / name,
-            **kwargs
-            )
+        try:
+            train_model(
+                dataset_folder=datasets_folder / kwargs.pop('dataset'),
+                output_folder=models_folder / name,
+                **kwargs
+                )
+        except ValueError as e:
+            warn(f"Skip model {name}: {e}")

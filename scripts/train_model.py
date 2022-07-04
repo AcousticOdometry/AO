@@ -7,11 +7,12 @@ tool. Provide the `--help` flag to see the available options.
 This file can also be imported as a module in order to use the `train_model`
 function.
 """
+from multiprocessing.sharedctypes import Value
 import ao
 from ao.models import CNN
 
-from dataset import get_dataset_shards_and_config
 from gdrive import GDrive
+from dataset import get_dataset_shards_and_config
 
 import io
 import os
@@ -21,9 +22,11 @@ import webdataset as wds
 import pytorch_lightning as pl
 
 from pathlib import Path
-from warnings import warn
 from dotenv import load_dotenv
-from typing import Optional, List, Dict, Tuple
+from typing import Callable, List, Dict, Tuple
+
+LOCAL_FOLDER = Path(os.getcwd) / 'models'
+LOCAL_FOLDER.mkdir(parents=True, exist_ok=True)
 
 def split_shards(shards: Dict[str, dict]) -> Tuple[List[str], List[str]]:
     train = []
@@ -113,34 +116,52 @@ class WebDatasetModule(pl.LightningDataModule):
     def test_dataloader(self):
         return self.get_dataloader(shards=self.test_shards)
 
+def model_exists(name: str, models_folder: str) -> bool:
+    folder_id = GDrive.get_folder_id(models_folder)
+    if folder_id:
+        raise NotImplementedError
+    # Models folder is a local folder
+    model_path = Path(models_folder) / name / 'model.pt'
+    return model_path.exists()
 
-def save_model(model: pl.LightningModule, to: str):
-    raise NotImplementedError
+
+def save_model(name: str, model: pl.LightningModule, models_folder: str):
+    # TODO Save also config
+    folder_id = GDrive.get_folder_id(models_folder)
+    if folder_id:
+        raise NotImplementedError
+    model_folder = Path(models_folder) / name
+    model_folder.mkdir(exist_ok=True)
+    torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
 
 
 def train_model(
     name: str,
     dataset: str,
     split_shards: Callable[[Dict[str, dict]], Tuple[List[str], List[str]]],
-    output_folder: Path,
+    models_folder: str,
     batch_size: int = 32,
     max_epochs: int = 15,
     ):
+    # Check if model already exists
+    if model_exists(name, models_folder):
+        raise ValueError(f"Model {name} already exists in {models_folder}")
+    # Initialize model
+    model = CNN(classes=6)
+    # Get dataset
     shards, config = get_dataset_shards_and_config(dataset)
     test_shards, train_shards = split_shards(shards)
-    # TODO Filter shards
-    # TODO local_output_folder
-    if output_folder.exists():
-        warn(f"{output_folder} already exists, model will be overwritten")
-    output_folder.mkdir(parents=True, exist_ok=True)
-    dataset = WebDatasetModule(dataset_folder=dataset_folder)
-    model = CNN(classes=6)
-    logger = pl.loggers.TensorBoardLogger(save_dir=output_folder)
+    dataset = WebDatasetModule(test_shards, train_shards)
+    # Configure trainer and train
+    logging_dir = LOCAL_FOLDER / name
+    logging_dir.mkdir(exist_ok=True)
+    logger = pl.loggers.TensorBoardLogger(save_dir=logging_dir)
     trainer = pl.Trainer(
-        max_epochs=max_epochs, logger=logger, default_root_dir=output_folder
+        max_epochs=max_epochs, logger=logger, default_root_dir=logging_dir
         )
     trainer.fit(model, dataset)
-    torch.jit.save(model.to_torchscript(), output_folder / "model.pt")
+    # Save model
+    return save_model(name, model, models_folder)
 
 
 if __name__ == '__main__':
@@ -178,6 +199,7 @@ if __name__ == '__main__':
             "considered the output folder."
             )
         )
+    # TODO train_split
     args = parser.parse_args()
 
     # Parse output argument
@@ -186,12 +208,10 @@ if __name__ == '__main__':
             "Missing output folder, provide --output argument or "
             "MODELS_FOLDER environmental variable"
             )
-    output_folder = args.output / args.name
 
     train_model(
         name=args.name,
         dataset=args.dataset,
-        # TODO this should be an argument
         split_shards=split_shards,
-        output_folder=output_folder,
+        models_folder=args.output,
         )
