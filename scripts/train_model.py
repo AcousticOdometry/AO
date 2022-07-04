@@ -25,8 +25,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import Callable, List, Dict, Tuple
 
-LOCAL_FOLDER = Path(os.getcwd) / 'models'
+LOCAL_FOLDER = Path(os.getcwd()) / 'models'
 LOCAL_FOLDER.mkdir(parents=True, exist_ok=True)
+
 
 def split_shards(shards: Dict[str, dict]) -> Tuple[List[str], List[str]]:
     train = []
@@ -34,80 +35,57 @@ def split_shards(shards: Dict[str, dict]) -> Tuple[List[str], List[str]]:
     for url, params in shards.items():
         if params['transform'] != 'None':
             continue
-        elif params['device'] in ['rode-videomic-ntg-top', 'rode-smartlav-top']
+        elif params['device'] in [
+            'rode-videomic-ntg-top', 'rode-smartlav-top'
+            ]:
             test.append(url)
         else:
             train.append(url)
     return train, test
 
-train_split_strategies = {
-    'base': split_shards
-}
+
+train_split_strategies = {'base': split_shards}
 
 
 class WebDatasetModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        train_shards: List[Path],
-        test_shards: List[Path] = [],
-        val_shards: List[Path] = [],
+        config: dict,
+        train_shards: List[str],
+        test_shards: List[str] = [],
+        val_shards: List[str] = [],
         batch_size: int = 6,
-        exclude_devices: List[str] = [
-            'rode-videomic-ntg-top', 'rode-smartlav-top'
-            ],
         # include_transforms: List[str] = [],
         ):
         super().__init__()
-        self.dataset_folder = dataset_folder
-        # Get dataset config
-        self.dataset_config = {}
-        for config_file in dataset_folder.glob('*.yaml'):
-            file_params = ao.dataset.parse_filename(config_file.stem)
-            key = next(iter(file_params))
-            self.dataset_config.setdefault(key, {}).update({
-                file_params[key]: ao.io.yaml_load(config_file)
-                })
+        self.config = config
+        self.train_shards = train_shards
+        self.test_shards = test_shards
+        self.val_shards = val_shards
         self.batch_size = batch_size
-        self.exclude_devices = exclude_devices
+        # Applied to features
         self.get_features = torch.from_numpy
         # TODO regression or classification
         # TODO Vx or slip + Vw ?
-        self.get_label = lambda result: int(result['Vx'] * 100)
+        # self.get_label = lambda result: torch.tensor(int(result['Vx'] * 100))
         # TODO self.dims
         # self.num_classes
 
-    def is_test_shard(self, shard: Path):
-        params = ao.dataset.parse_filename(shard.stem)
-        if params['device'] in self.exclude_devices:
-            return False
-        # TODO remove hardcoded
-        elif params['transform'] != 'None':
-            return None
-        return True
-
-    def prepare_data(self):
-        # ? download dataset from gdrive if dataset_folder is a URL ?
-        self.train_shards = []
-        self.test_shards = []
-        for shard in self.dataset_folder.glob('*.tar'):
-            is_test = self.is_test_shard(shard)
-            if is_test is True:
-                self.test_shards.append(shard)
-            elif is_test is False:
-                self.train_shards.append(shard)
+    def get_batch_labels(self, batch):
+        return torch.tensor([int(result['Vx']) * 100 for result in batch])
 
     def get_dataloader(self, shards):
         return wds.DataPipeline(
             wds.SimpleShardList(shards),
             wds.tarfile_to_samples(),
-            # wds.shuffle(5000),
+            wds.shuffle(5000),
             wds.decode(
                 wds.handle_extension('.npy', lambda x: np.load(io.BytesIO(x)))
                 ),
             wds.to_tuple('npy', 'json'),
-            wds.map_tuple(self.get_features, self.get_label),
-            wds.batched(self.batch_size, partial=False)
+            wds.batched(self.batch_size, partial=False),
+            wds.map_tuple(self.get_features, self.get_batch_labels),
             )
 
     def train_dataloader(self):
@@ -116,23 +94,49 @@ class WebDatasetModule(pl.LightningDataModule):
     def test_dataloader(self):
         return self.get_dataloader(shards=self.test_shards)
 
+
 def model_exists(name: str, models_folder: str) -> bool:
     folder_id = GDrive.get_folder_id(models_folder)
     if folder_id:
-        raise NotImplementedError
+        gdrive = GDrive()
+        # Look for a subfolder in `models_folder` with `name` as title
+        for folder in gdrive.list_folder(folder_id):
+            if not GDrive.is_folder(folder):
+                continue
+            elif folder['title'] == name:
+                # Model exists if that subfolder contains a `model.pt` file
+                for f in gdrive.list_folder(folder['id']):
+                    if f['title'] == 'model.pt':
+                        return True
+                # If no `model.pt` file is found trash the subfolder
+                folder.Trash()
+            return False
     # Models folder is a local folder
     model_path = Path(models_folder) / name / 'model.pt'
     return model_path.exists()
 
 
-def save_model(name: str, model: pl.LightningModule, models_folder: str):
+def save_model(
+    name: str,
+    model: pl.LightningModule,
+    models_folder: str,
+    logging_dir: Path,
+    ):
     # TODO Save also config
     folder_id = GDrive.get_folder_id(models_folder)
     if folder_id:
-        raise NotImplementedError
-    model_folder = Path(models_folder) / name
-    model_folder.mkdir(exist_ok=True)
-    torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
+        gdrive = GDrive()
+        model_folder = gdrive.create_folder(name, folder_id)
+        model_folder.Upload()
+        model_file = gdrive.create_file('model.pt', model_folder['id'])
+        torch.jit.save(model.to_torchscript(), logging_dir / 'model.pt')
+        model_file.SetContentFile(str(logging_dir / 'model.pt'))
+        model_file.Upload()
+    else:
+        # Models folder is a local folder
+        model_folder = Path(models_folder) / name
+        model_folder.mkdir(exist_ok=True)
+        torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
 
 
 def train_model(
@@ -146,22 +150,26 @@ def train_model(
     # Check if model already exists
     if model_exists(name, models_folder):
         raise ValueError(f"Model {name} already exists in {models_folder}")
-    # Initialize model
-    model = CNN(classes=6)
     # Get dataset
     shards, config = get_dataset_shards_and_config(dataset)
     test_shards, train_shards = split_shards(shards)
-    dataset = WebDatasetModule(test_shards, train_shards)
+    dataset = WebDatasetModule(config, test_shards, train_shards)
+    # Initialize model
+    # TODO use config
+    model = CNN(classes=8)
     # Configure trainer and train
     logging_dir = LOCAL_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
     logger = pl.loggers.TensorBoardLogger(save_dir=logging_dir)
     trainer = pl.Trainer(
-        max_epochs=max_epochs, logger=logger, default_root_dir=logging_dir
+        accelerator='auto',
+        max_epochs=max_epochs,
+        logger=logger,
+        default_root_dir=logging_dir,
         )
     trainer.fit(model, dataset)
     # Save model
-    return save_model(name, model, models_folder)
+    return save_model(name, model, models_folder, logging_dir)
 
 
 if __name__ == '__main__':
@@ -191,7 +199,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--output',
         '-o',
-        type=Path,
+        type=str,
         default=os.getenv('MODELS_FOLDER'),
         help=(
             "Path to a directory where the model will be saved. A subfolder "
@@ -203,7 +211,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Parse output argument
-    if args.output is None:
+    if not args.output:
         raise ValueError(
             "Missing output folder, provide --output argument or "
             "MODELS_FOLDER environmental variable"

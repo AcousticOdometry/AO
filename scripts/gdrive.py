@@ -3,8 +3,8 @@ import yaml
 
 from pathlib import Path
 from typing import Optional
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 
 
 class GDrive:
@@ -24,8 +24,37 @@ class GDrive:
             'includeItemsFromAllDrives': True,
             }).GetList()
 
+    @staticmethod
+    def is_folder(f: 'pydrive.file.GoogleDriveFile'):
+        return f['mimeType'] == 'application/vnd.google-apps.folder'
+
     def yaml_load(self, f: 'pydrive.file.GoogleDriveFile') -> dict:
         return yaml.safe_load(f.GetContentString())
+
+    def create_folder(
+            self, name: str, parent_id: str
+        ) -> 'pydrive.file.GoogleDriveFile':
+        return self.drive.CreateFile({
+            'title': name,
+            'supportsAllDrives': True,
+            'includeItemsFromAllDrives': True,
+            'mimeType': 'application/vnd.google-apps.folder',
+            'parents': [{
+                "id": parent_id
+                }]
+            })
+
+    def create_file(
+            self, name: str, parent_id: str
+        ) -> 'pydrive.file.GoogleDriveFile':
+        return self.drive.CreateFile({
+            'title': name,
+            'supportsAllDrives': True,
+            'includeItemsFromAllDrives': True,
+            'parents': [{
+                "id": parent_id
+                }],
+            })
 
     @staticmethod
     def get_folder_id(url: str) -> Optional[str]:
