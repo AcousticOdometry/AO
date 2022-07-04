@@ -65,7 +65,7 @@ class WebDatasetModule(pl.LightningDataModule):
         self.val_shards = val_shards
         self.batch_size = batch_size
         # Applied to features
-        self.get_features = torch.from_numpy
+        self.get_batch_features = torch.from_numpy
         # TODO regression or classification
         # TODO Vx or slip + Vw ?
         # self.get_label = lambda result: torch.tensor(int(result['Vx'] * 100))
@@ -85,7 +85,7 @@ class WebDatasetModule(pl.LightningDataModule):
                 ),
             wds.to_tuple('npy', 'json'),
             wds.batched(self.batch_size, partial=False),
-            wds.map_tuple(self.get_features, self.get_batch_labels),
+            wds.map_tuple(self.get_batch_features, self.get_batch_labels),
             )
 
     def train_dataloader(self):
@@ -146,6 +146,7 @@ def train_model(
     models_folder: str,
     batch_size: int = 32,
     max_epochs: int = 15,
+    gpus: int = -1,
     ):
     # Check if model already exists
     if model_exists(name, models_folder):
@@ -153,7 +154,9 @@ def train_model(
     # Get dataset
     shards, config = get_dataset_shards_and_config(dataset)
     test_shards, train_shards = split_shards(shards)
-    dataset = WebDatasetModule(config, test_shards, train_shards)
+    dataset = WebDatasetModule(
+        config, test_shards, train_shards, batch_size=batch_size
+        )
     # Initialize model
     # TODO use config
     model = CNN(classes=8)
@@ -166,6 +169,7 @@ def train_model(
         max_epochs=max_epochs,
         logger=logger,
         default_root_dir=logging_dir,
+        gpus=gpus,
         )
     trainer.fit(model, dataset)
     # Save model
@@ -207,6 +211,19 @@ if __name__ == '__main__':
             "considered the output folder."
             )
         )
+    parser.add_argument(
+        '--batch-size',
+        '-b',
+        default=32,
+        type=int,
+        )
+    parser.add_argument(
+        '--gpus',
+        '-g',
+        default=-1,
+        type=int,
+        nargs='+',
+        )
     # TODO train_split
     args = parser.parse_args()
 
@@ -222,4 +239,6 @@ if __name__ == '__main__':
         dataset=args.dataset,
         split_shards=split_shards,
         models_folder=args.output,
+        batch_size=args.batch_size,
+        gpus=args.gpus,
         )
