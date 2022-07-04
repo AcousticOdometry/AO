@@ -36,22 +36,16 @@ class CNN(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        x = x.float()
-        prediction = self(x)
-        loss = self.cost_function(
-            prediction,
-            # TODO remove hardcoded device. Lightning should take care
-            torch.from_numpy(y).to('cuda').long()
-            )
+        # print('Train!')
+        prediction = self(x.float())
+        # print(prediction)
+        # print(y.long())
+        loss = self.cost_function(prediction, y.long())
+        self.log('train_loss', loss, on_step=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        x = x.float()
-        prediction = self(x)
-        test_loss = self.cost_function(
-            prediction,
-            # TODO remove hardcoded device. Lightning should take care
-            torch.from_numpy(y).to('cuda').long()
-            )
-        self.log("test_loss", test_loss)
+        prediction = self(x.float())
+        test_loss = self.cost_function(prediction, y.long())
+        self.log('test_loss', test_loss)
