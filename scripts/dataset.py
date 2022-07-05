@@ -1,14 +1,14 @@
 # TODO document
-from genericpath import exists
 import ao
 
 from gdrive import GDrive
 
 import os
+import webdataset as wds
 
+from typing import Dict
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import Dict
 
 CACHE_FOLDER = Path(__file__).parent.parent / 'datasets'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -116,12 +116,10 @@ def get_dataset_shards_and_config(dataset: str) -> Dict[str, Path]:
         "folder url."
         )
 
-
 if __name__ == "__main__":
     import io
     import json
     import numpy as np
-    import webdataset as wds
 
     from argparse import ArgumentParser
 
@@ -140,9 +138,8 @@ if __name__ == "__main__":
             wds.handle_extension('.npy', lambda x: np.load(io.BytesIO(x)))
             ),
         wds.to_tuple('npy', 'json'),
-        wds.shuffle(0),
         )
     for features, result in dataset:
         print(f"{features.shape = }")
         print(f"{result = }")
-        break
+        

@@ -7,18 +7,13 @@ tool. Provide the `--help` flag to see the available options.
 This file can also be imported as a module in order to use the `train_model`
 function.
 """
-from multiprocessing.sharedctypes import Value
-import ao
 from ao.models import CNN
 
 from gdrive import GDrive
-from dataset import get_dataset_shards_and_config
+from lightningwebdataset import LightningWebDataset
 
-import io
 import os
 import torch
-import numpy as np
-import webdataset as wds
 import pytorch_lightning as pl
 
 from pathlib import Path
@@ -27,70 +22,6 @@ from typing import Callable, List, Dict, Tuple
 
 CACHE_FOLDER = Path(__file__).parent.parent / 'models'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
-
-
-def split_shards(shards: Dict[str, dict]) -> Tuple[List[str], List[str]]:
-    train = []
-    validation = []
-    for url, params in shards.items():
-        if params['transform'] != 'None':
-            continue
-        elif params['device'] in [
-            'rode-videomic-ntg-top', 'rode-smartlav-top'
-            ]:
-            validation.append(url)
-        else:
-            train.append(url)
-    return train, validation
-
-
-train_split_strategies = {'base': split_shards}
-
-
-class WebDatasetModule(pl.LightningDataModule):
-
-    def __init__(
-        self,
-        config: dict,
-        train_shards: List[str],
-        validation_shards: List[str] = [],
-        batch_size: int = 6,
-        # include_transforms: List[str] = [],
-        ):
-        super().__init__()
-        self.config = config
-        self.train_shards = train_shards
-        self.validation_shards = validation_shards
-        self.batch_size = batch_size
-        # Applied to features
-        self.get_batch_features = torch.from_numpy
-        # TODO regression or classification
-        # TODO Vx or slip + Vw ?
-        # self.get_label = lambda result: torch.tensor(int(result['Vx'] * 100))
-        # TODO self.dims
-        # self.num_classes
-
-    def get_batch_labels(self, batch):
-        return torch.tensor([int(result['Vx'] * 100) for result in batch])
-
-    def get_dataloader(self, shards):
-        return wds.DataPipeline(
-            wds.SimpleShardList(shards),
-            wds.tarfile_to_samples(),
-            wds.shuffle(1E6),
-            wds.decode(
-                wds.handle_extension('.npy', lambda x: np.load(io.BytesIO(x)))
-                ),
-            wds.to_tuple('npy', 'json'),
-            wds.batched(self.batch_size, partial=False),
-            wds.map_tuple(self.get_batch_features, self.get_batch_labels),
-            )
-
-    def train_dataloader(self):
-        return self.get_dataloader(shards=self.train_shards)
-
-    def val_dataloader(self):
-        return self.get_dataloader(shards=self.validation_shards)
 
 
 def model_exists(name: str, models_folder: str) -> bool:
@@ -140,7 +71,8 @@ def save_model(
 def train_model(
     name: str,
     dataset: str,
-    split_shards: Callable[[Dict[str, dict]], Tuple[List[str], List[str]]],
+    test_split: float,
+    shard_selection_strategy: str,
     models_folder: str,
     batch_size: int = 32,
     max_epochs: int = 15,
@@ -150,12 +82,10 @@ def train_model(
     if model_exists(name, models_folder):
         raise ValueError(f"Model {name} already exists in {models_folder}")
     # Get dataset
-    shards, config = get_dataset_shards_and_config(dataset)
-    train_shards, validation_shards = split_shards(shards)
-    dataset = WebDatasetModule(
-        config,
-        train_shards=train_shards,
-        validation_shards=validation_shards,
+    dataset = LightningWebDataset(
+        dataset=dataset,
+        test_split=test_split,
+        shard_selection_strategy=shard_selection_strategy,
         batch_size=batch_size
         )
     # Initialize model

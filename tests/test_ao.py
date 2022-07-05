@@ -8,6 +8,7 @@ def test_ao(audio_data, model_folder):
         ):
         features_1 = model.features
         result = model(frame)
+        print(model.prediction)
         if result > 0:
             print(result)
         assert features_1[0, :, :, 1:].equal(model.features[0, :, :, 0:-1])
