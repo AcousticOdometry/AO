@@ -31,17 +31,17 @@ LOCAL_FOLDER.mkdir(parents=True, exist_ok=True)
 
 def split_shards(shards: Dict[str, dict]) -> Tuple[List[str], List[str]]:
     train = []
-    test = []
+    validation = []
     for url, params in shards.items():
         if params['transform'] != 'None':
             continue
         elif params['device'] in [
             'rode-videomic-ntg-top', 'rode-smartlav-top'
             ]:
-            test.append(url)
+            validation.append(url)
         else:
             train.append(url)
-    return train, test
+    return train, validation
 
 
 train_split_strategies = {'base': split_shards}
@@ -53,16 +53,14 @@ class WebDatasetModule(pl.LightningDataModule):
         self,
         config: dict,
         train_shards: List[str],
-        test_shards: List[str] = [],
-        val_shards: List[str] = [],
+        validation_shards: List[str] = [],
         batch_size: int = 6,
         # include_transforms: List[str] = [],
         ):
         super().__init__()
         self.config = config
         self.train_shards = train_shards
-        self.test_shards = test_shards
-        self.val_shards = val_shards
+        self.validation_shards = validation_shards
         self.batch_size = batch_size
         # Applied to features
         self.get_batch_features = torch.from_numpy
@@ -91,8 +89,8 @@ class WebDatasetModule(pl.LightningDataModule):
     def train_dataloader(self):
         return self.get_dataloader(shards=self.train_shards)
 
-    def test_dataloader(self):
-        return self.get_dataloader(shards=self.test_shards)
+    def val_dataloader(self):
+        return self.get_dataloader(shards=self.validation_shards)
 
 
 def model_exists(name: str, models_folder: str) -> bool:
@@ -153,9 +151,12 @@ def train_model(
         raise ValueError(f"Model {name} already exists in {models_folder}")
     # Get dataset
     shards, config = get_dataset_shards_and_config(dataset)
-    test_shards, train_shards = split_shards(shards)
+    train_shards, validation_shards = split_shards(shards)
     dataset = WebDatasetModule(
-        config, test_shards, train_shards, batch_size=batch_size
+        config,
+        train_shards=train_shards,
+        validation_shards=validation_shards,
+        batch_size=batch_size
         )
     # Initialize model
     # TODO use config
@@ -170,7 +171,10 @@ def train_model(
         logger=logger,
         default_root_dir=logging_dir,
         gpus=gpus,
+        # auto_lr_find=True,
+        # auto_scale_batch_size='binsearch',
         )
+    trainer.tune(model, dataset)
     trainer.fit(model, dataset)
     # Save model
     return save_model(name, model, models_folder, logging_dir)
