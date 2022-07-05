@@ -10,12 +10,14 @@ class AO:
 
     def __init__(
         self,
+        name: str,
         model_path: Path,
         extractors: List[ao.extractor.Extractor],
         num_frames: int,
         device: torch.device = torch.
         device('cuda' if torch.cuda.is_available() else 'cpu'),
         ):
+        self.name = name
         self.model_path = model_path
         if not len(extractors):
             raise ValueError('At least one extractor must be provided')
@@ -45,7 +47,7 @@ class AO:
         self.prediction = torch.empty(6, device=self.device)
 
     def __str__(self) -> str:
-        return self.model_path.stem
+        return self.name
 
     def update(self, samples: np.ndarray) -> torch.Tensor:
         for i, extractor in enumerate(self.extractors):
@@ -66,7 +68,7 @@ class AO:
     @classmethod
     def new(
         cls,
-        model_path: Path,
+        model_folder: Path,
         model_parameters: Optional[dict] = None,
         device: torch.device = torch.
         device('cuda' if torch.cuda.is_available() else 'cpu'),
@@ -74,4 +76,18 @@ class AO:
         if model_parameters is None:
             # TODO Load from yaml file
             pass
-        raise NotImplementedError()
+        extractors = [
+            ao.extractor.GammatoneFilterbank(
+                num_samples=int(10 * 44100 / 1000),
+                num_features=256,
+                sample_rate=44100,
+                )
+            ]
+        model = cls(
+            name=model_folder.name,
+            model_path=model_folder / 'model.pt',
+            extractors=extractors,
+            num_frames=100,
+            device=device,
+            )
+        return model

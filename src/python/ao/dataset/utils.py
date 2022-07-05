@@ -50,17 +50,17 @@ def get_folder(env: Optional['str'] = None, interactive: bool = True) -> Path:
 def parse_filename(filename: str) -> dict:
     """Parses a filename into a dictionary. Dictionary items are divided by `;`
     characters. Key and value are separated by `_`. Values are parsed into
-    `int`, `bool` or left as string in that order. See
-    https://docs.python.org/3/distutils/apiref.html#distutils.util.strtobool
+    `float`, `bool` or left as string in that order. See
+    https://docs.python.org/1/distutils/apiref.html#distutils.util.strtobool
     for details on the boolean conversion.
 
     Args:
         filename (str): Filename to be parsed. It is supposed to be only the
-        name, not a full path.
+            name, not a full path.
 
     Returns:
-        dict: Parsed dictionary containing string keys with corresponding int,
-            bool and string values.
+        dict: Parsed dictionary containing string keys with corresponding
+            float, bool and string values.
     """
     parsed = {}
     for item in str(filename).split(';'):
@@ -88,17 +88,47 @@ def parse_filename(filename: str) -> dict:
 
 
 def dict_to_filename(d: dict) -> str:
-    raise NotImplementedError('Not implemented yet.')
+    """Parses a dictionary into a filename. Dictionary items are divided by `;`
+    characters. Key and value are separated by `_`. Key and valued are parsed
+    using `str` constructor.
+
+    Args:
+        d (dict): Dictionary to be parsed into a string. Parsed values
+            can't contain `;` or `_` characters as they are used as separators.
+
+    Raises:
+        ValueError: If a parsed key or value contains `;` or `_` characters.
+
+    Returns:
+        str: Filename containing the parsed dictionary.
+    """
+    parsed_items = []
+    for item in d.items():
+        parsed_item = []
+        for value in item:
+            parsed_value = str(value)
+            if ';' in parsed_value or '_' in parsed_value:
+                raise ValueError(
+                    f"Could not parse `{value}` from {item}, parsed value "
+                    f"`{parsed_value}` contains `;` or `_` characters."
+                    )
+            parsed_item.append(parsed_value)
+        parsed_items.append('_'.join(parsed_item))
+    return ';'.join(parsed_items)
 
 
 def list_data(
     data_folder: Union[str, Path],
     naming: Optional[dict] = None,
     ) -> Tuple[Dict[Path, dict], dict]:
-    """_summary_
+    """Inspects a data folder composed of subdirectories that follow a given
+    naming convention.
 
     Args:
-        data_folder (Union[str, Path]): _description_
+        data_folder (Union[str, Path]): Path to the data folder composed of
+            subdirectories that follow the naming convention specified by
+            `naming`.
+
         naming (Optional[dict]): Naming convention to be used. Dictionary keys
             are the expected values to be found in each subfolder of the
             data_folder. If not provided, it will be loaded from a
@@ -107,8 +137,10 @@ def list_data(
 
     Returns:
         (data, naming):
-            data (Dict[Path, dict]): _description_
-            naming (dict): _description_
+            data (Dict[Path, dict]): Dictionary of subdirectory paths as keys
+                and their corresponding parsed filenames as values.
+
+            naming (dict): Naming convention used.
     """
     data_folder = Path(data_folder)
     # Find naming convention

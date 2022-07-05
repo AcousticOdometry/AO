@@ -71,12 +71,16 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
     /**
      * @brief Construct a new Gammatone Filterbank object
      *
-     * @param num_samples Number of samples per input signal.
+     * @param num_samples Number of samples needed to extract a vector of
+     *      features.
      * @param num_features Number of filters to use in the filterbank.
      * @param sample_rate Samples per second of the input signal in Hz.
+     * @param transform Function to transform the output features.
+     * @param on_channel If the input samples are a 2D vector, on_channel
+     *      defines which channel to use. If the value is negative, all
+     *      channels will be averaged.
      * @param low_Hz Lowest filter center frequency in Hz.
      * @param high_Hz Highest filter center frequency in Hz.
-     * TODO expand
      * @param temporal_integration Temporal integration in seconds.
      */
     GammatoneFilterbank(
@@ -84,10 +88,12 @@ template <typename T> class GammatoneFilterbank : public Extractor<T> {
         const size_t& num_features           = 64,
         const int& sample_rate               = 44100,
         const std::function<T(T)>& transform = [](T x) { return x; },
+        const int& on_channel                = -1,
         const T& low_Hz                      = 100,
         const T& high_Hz                     = 8000,
         const T& temporal_integration        = 0)
-    : Extractor<T>(num_samples, num_features, sample_rate, transform),
+    : Extractor<T>(
+        num_samples, num_features, sample_rate, transform, on_channel),
       filters(make_filters(low_Hz, high_Hz, num_features, sample_rate)),
       intdecay(std::exp(-1 / (sample_rate * temporal_integration))) {}
 

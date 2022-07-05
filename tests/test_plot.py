@@ -40,13 +40,12 @@ def test_gammatonegram(audio_data, savefig):
         temporal_integration=8 / 1000,  # [s]
         ax=ax,
         pcolormesh_kwargs={
-            'cmap': 'jet',
-            'vmin': -0.5
+            'cmap': 'jet'
             },
         )
     ax.set_title('Ratemap')
     xlow, xhigh = ax.get_xlim()
-    ax.set_xlim((xlow, xhigh - 0))
+    ax.set_xlim((xlow, xhigh))
     f.colorbar(plot, cax=cax, orientation="horizontal")
     savefig(f)
 
