@@ -143,7 +143,7 @@ def train_model(
     split_shards: Callable[[Dict[str, dict]], Tuple[List[str], List[str]]],
     models_folder: str,
     batch_size: int = 32,
-    max_epochs: int = 1,
+    max_epochs: int = 15,
     gpus: int = -1,
     ):
     # Check if model already exists
