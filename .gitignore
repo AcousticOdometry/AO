@@ -4,6 +4,7 @@ vcpkg_installed/
 libtorch/
 gdrive_credentials.json
 models/
+datasets/
 
 /_*/
 
