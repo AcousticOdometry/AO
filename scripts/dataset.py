@@ -1,4 +1,5 @@
 # TODO document
+from genericpath import exists
 import ao
 
 from gdrive import GDrive
@@ -9,33 +10,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import Dict
 
-
-def get_config_from_gdrive(folder_id: str, gdrive: GDrive) -> dict:
-    config = {}
-    for f in gdrive.list_folder(folder_id):
-        if f['title'].endswith('.yaml'):
-            file_params = ao.dataset.parse_filename(
-                f['title'].replace('.yaml', '')
-                )
-            key = next(iter(file_params))
-            config.setdefault(key, {}).update({
-                file_params[key]: gdrive.yaml_load(f)
-                })
-    return config
-
-
-def get_shards_from_gdrive(folder_id: str, gdrive: GDrive) -> Dict[str, dict]:
-    shards = {}
-    for f in gdrive.list_folder(folder_id):
-        if f['title'].endswith('.tar'):
-            shard_url = (
-                f'pipe:curl -s -L '
-                f'"https://drive.google.com/uc?confirm=t&id={f["id"]}"'
-                )
-            shards[shard_url] = ao.dataset.parse_filename(
-                f['title'].replace('.tar', '')
-                )
-    return shards
+CACHE_FOLDER = Path(__file__).parent.parent / 'datasets'
+CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
 def get_config_from_filesystem(folder: Path) -> dict:
@@ -54,6 +30,35 @@ def get_shards_from_filesystem(folder: Path) -> Dict[str, dict]:
         f"file:{path}": ao.dataset.parse_filename(path.stem)
         for path in sorted(folder.glob('*.tar'))
         }
+
+
+def get_config_from_gdrive(folder_id: str, gdrive: GDrive) -> dict:
+    config = {}
+    for f in gdrive.list_folder(folder_id):
+        if f['title'].endswith('.yaml'):
+            file_params = ao.dataset.parse_filename(
+                f['title'].replace('.yaml', '')
+                )
+            key = next(iter(file_params))
+            config.setdefault(key, {}).update({
+                file_params[key]: gdrive.yaml_load(f)
+                })
+    return config
+
+
+def get_shards_from_gdrive(folder_id: str, gdrive: GDrive) -> Dict[str, dict]:
+    folder = gdrive.drive.CreateFile({'id': folder_id})
+    folder.FetchMetadata(fields='title')
+    dataset_folder = CACHE_FOLDER / folder['title']
+    dataset_folder.mkdir(exist_ok=True)
+    for f in gdrive.list_folder(folder_id):
+        if f['title'].endswith('.tar'):
+            # Check if cached in LOCAL_FOLDER
+            if (dataset_folder / f['title']).exists():
+                continue
+            print(f"Downloading {folder['title']} shard {f['title']}...")
+            f.GetContentFile(str(dataset_folder / f['title']))
+    return get_shards_from_filesystem(dataset_folder)
 
 
 def get_dataset_shards_and_config(dataset: str) -> Dict[str, Path]:

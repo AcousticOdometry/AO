@@ -25,8 +25,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import Callable, List, Dict, Tuple
 
-LOCAL_FOLDER = Path(os.getcwd()) / 'models'
-LOCAL_FOLDER.mkdir(parents=True, exist_ok=True)
+CACHE_FOLDER = Path(__file__).parent.parent / 'models'
+CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
 def split_shards(shards: Dict[str, dict]) -> Tuple[List[str], List[str]]:
@@ -162,7 +162,7 @@ def train_model(
     # TODO use config
     model = CNN(classes=8)
     # Configure trainer and train
-    logging_dir = LOCAL_FOLDER / name
+    logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
     logger = pl.loggers.TensorBoardLogger(save_dir=logging_dir)
     trainer = pl.Trainer(
