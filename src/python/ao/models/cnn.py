@@ -8,6 +8,7 @@ from typing import Tuple
 
 from torchmetrics.functional import accuracy
 
+
 class CNN(pl.LightningModule):
 
     def __init__(
@@ -32,7 +33,6 @@ class CNN(pl.LightningModule):
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        #x = x.view(x.size(0), -1)
         x = self.flatten(x)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
@@ -40,7 +40,9 @@ class CNN(pl.LightningModule):
         return F.log_softmax(x, dim=1)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams['lr'])
+        optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.hparams.lr
+            )
         # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
         # return [optimizer], [lr_scheduler]
         return optimizer
@@ -65,4 +67,15 @@ class CNN(pl.LightningModule):
         loss = self.cost_function(prediction, y)
         acc = accuracy(prediction, y)
         metrics = {"val_acc": acc, "val_loss": loss}
+        self.log_dict(metrics)
+        return metrics
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        y = y.long()
+        prediction = self(x.float())
+        loss = self.cost_function(prediction, y)
+        acc = accuracy(prediction, y)
+        metrics = {"test_acc": acc, "test_loss": loss}
+        self.log_dict(metrics)
         return metrics

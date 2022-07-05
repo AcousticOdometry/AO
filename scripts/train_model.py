@@ -18,7 +18,7 @@ import pytorch_lightning as pl
 
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import Callable, List, Dict, Tuple
+from pytorch_lightning.callbacks import EarlyStopping
 
 CACHE_FOLDER = Path(__file__).parent.parent / 'models'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -71,7 +71,7 @@ def save_model(
 def train_model(
     name: str,
     dataset: str,
-    test_split: float,
+    validation_split: float,
     shard_selection_strategy: str,
     models_folder: str,
     batch_size: int = 32,
@@ -84,7 +84,7 @@ def train_model(
     # Get dataset
     dataset = LightningWebDataset(
         dataset=dataset,
-        test_split=test_split,
+        validation_split=validation_split,
         shard_selection_strategy=shard_selection_strategy,
         batch_size=batch_size
         )
@@ -96,16 +96,20 @@ def train_model(
     logging_dir.mkdir(exist_ok=True)
     logger = pl.loggers.TensorBoardLogger(save_dir=logging_dir)
     trainer = pl.Trainer(
+        # precision=16
         accelerator='auto',
+        min_epochs=3,
         max_epochs=max_epochs,
         logger=logger,
         default_root_dir=logging_dir,
         gpus=gpus,
+        callbacks=[EarlyStopping(monitor="val_loss", mode="min")]
         # auto_lr_find=True,
         # auto_scale_batch_size='binsearch',
         )
     trainer.tune(model, dataset)
     trainer.fit(model, dataset)
+    trainer.test(model, dataset)
     # Save model
     return save_model(name, model, models_folder, logging_dir)
 
@@ -171,7 +175,8 @@ if __name__ == '__main__':
     train_model(
         name=args.name,
         dataset=args.dataset,
-        split_shards=split_shards,
+        validation_split=0.2,
+        shard_selection_strategy='base',
         models_folder=args.output,
         batch_size=args.batch_size,
         gpus=args.gpus,

@@ -14,20 +14,18 @@ from typing import Dict, List, Tuple
 def _select_shards_by_transform_and_device(
     shards: Dict[str, dict],
     use_transforms: List[str] = ['None'],
-    validation_devices: List[str] = [
-        'rode-videomic-ntg-top', 'rode-smartlav-top'
-        ],
+    test_devices: List[str] = ['rode-videomic-ntg-top', 'rode-smartlav-top'],
     ) -> Tuple[List[str], List[str]]:
     train = []
-    validation = []
+    test = []
     for url, params in shards.items():
         if params['transform'] not in use_transforms:
             continue
-        elif params['device'] in validation_devices:
-            validation.append(url)
+        elif params['device'] in test_devices:
+            test.append(url)
         else:
             train.append(url)
-    return train, validation
+    return train, test
 
 
 SHARD_SELECTION_STRATEGIES = {
@@ -35,42 +33,53 @@ SHARD_SELECTION_STRATEGIES = {
         partial(
             _select_shards_by_transform_and_device,
             use_transforms=['None'],
-            validation_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
+            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
+            ),
+    'random-noise':
+        partial(
+            _select_shards_by_transform_and_device,
+            use_transforms=['None', 'add-random-snr-noise'],
+            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
+            ),
+    'all-devices':
+        partial(
+            _select_shards_by_transform_and_device,
+            use_transforms=['None'],
+            test_devices=[],
             ),
     }
 
 
-def _split_train(data, test_split, random_seed):
-    assert 0.0 <= test_split <= 1.0
+def _split_train(data, validation_split, random_seed):
+    assert 0.0 <= validation_split <= 1.0
     rng = random.Random(random_seed)
     for sample in data:
-        if rng.uniform(0.0, 1.0) >= test_split:
+        if rng.uniform(0.0, 1.0) >= validation_split:
             yield sample
 
 
-def _split_test(data, test_split, random_seed):
-    assert 0.0 <= test_split <= 1.0
+def _split_validation(data, validation_split, random_seed):
+    assert 0.0 <= validation_split <= 1.0
     rng = random.Random(random_seed)
     for sample in data:
-        if rng.uniform(0.0, 1.0) < test_split:
+        if rng.uniform(0.0, 1.0) < validation_split:
             yield sample
 
 
 split_train = wds.filters.pipelinefilter(_split_train)
-split_test = wds.filters.pipelinefilter(_split_test)
+split_validation = wds.filters.pipelinefilter(_split_validation)
 
 
 class LightningWebDataset(pl.LightningDataModule):
 
     def __init__(
-        self,
-        dataset: str,
-        shard_selection_strategy: str = 'base',
-        test_split: float = 0.2,
-        batch_size: int = 6,
-        # include_transforms: List[str] = [],
-        seed: int = random.randint(0, 2**32),
-        shuffle: int = 1E6,
+            self,
+            dataset: str,
+            shard_selection_strategy: str = 'base',
+            validation_split: float = 0.2,
+            batch_size: int = 6,
+            seed: int = random.randint(0, 2**32),
+            shuffle: int = 1E6,
         ):
         super().__init__()
         shards, self.config = get_dataset_shards_and_config(dataset)
@@ -80,12 +89,13 @@ class LightningWebDataset(pl.LightningDataModule):
                 f"{list(SHARD_SELECTION_STRATEGIES.keys())}"
                 )
         select_shards = SHARD_SELECTION_STRATEGIES[shard_selection_strategy]
-        self.train_shards, self.validation_shards = select_shards(shards)
-        if test_split >= 1 or test_split < 0:
+        self.train_shards, self.test_shards = select_shards(shards)
+        if validation_split >= 1 or validation_split < 0:
             raise ValueError(
-                f"`test_split` must be in range [0,1[ but is {test_split}"
+                "`validation_split` must be in range [0,1[ but is "
+                f"{validation_split}"
                 )
-        self.test_split = test_split
+        self.validation_split = validation_split
         self.batch_size = batch_size
         self.seed = seed
         self.shuffle = shuffle
@@ -117,16 +127,17 @@ class LightningWebDataset(pl.LightningDataModule):
 
     def train_dataloader(self):
         return self.get_dataloader(
-            self.train_shards, split_train(self.test_split, self.seed)
-            )
-
-    def test_dataloader(self):
-        return self.get_dataloader(
-            self.train_shards, split_test(self.test_split, self.seed)
+            self.train_shards, split_train(self.validation_split, self.seed)
             )
 
     def val_dataloader(self):
-        return self.get_dataloader(shards=self.validation_shards)
+        return self.get_dataloader(
+            self.train_shards,
+            split_validation(self.validation_split, self.seed)
+            )
+
+    def test_dataloader(self):
+        return self.get_dataloader(shards=self.test_shards)
 
 
 if __name__ == "__main__":
@@ -138,53 +149,26 @@ if __name__ == "__main__":
     parser = ArgumentParser("Test WebDataset creation and splits")
     parser.add_argument('dataset', type=str)
     # parser.add_argument('--total', type=int, default=10)
-    parser.add_argument('--test-split', type=float, default=0.2)
+    parser.add_argument('-s', '--validation-split', type=float, default=0.2)
     args = parser.parse_args()
-    dataset = LightningWebDataset(args.dataset, test_split=args.test_split)
-    # all_samples = iter(dataset.get_dataloader(dataset.train_shards))
-    train_samples = iter(dataset.train_dataloader())
-    test_samples = iter(dataset.test_dataloader())
-
-    print(f"Checking dataset {args.dataset} with test split {args.test_split}")
+    dataset = LightningWebDataset(
+        args.dataset, validation_split=args.validation_split
+        )
+    print(
+        f"Checking dataset {args.dataset} with test split "
+        f"{args.validation_split}"
+        )
     # Save samples to list
-    test_samples = list(test_samples)
+    val_samples = list(dataset.val_dataloader())
     # Train samples should never be in the test set
     train = 0
-    for features, _ in train_samples:
-        for test_features, _ in test_samples:
+    for features, _ in dataset.train_dataloader():
+        for val_features, _ in val_samples:
             assert not torch.equal(
-                features, test_features
-                ), "Train sample in test set"
+                features, val_features
+                ), "Train sample in validation set"
         train += 1
-    test = len(test_samples)
-    total = test + train
+    validation = len(val_samples)
+    total = validation + train
     print(f"Train: {train}/{total} = {train/total}")
-    print(f"Test: {test}/{total} = {test/total}")
-
-
-    # Test valid only when not shuffling
-    # train = 0
-    # test = 0
-    # print(
-    #     f"Extracting {args.total} samples with a test split of "
-    #     f"{args.test_split}"
-    #     )
-    # next_train_sample, _ = next(train_samples)
-    # next_test_sample, _ = next(test_samples)
-    # for total in range(args.total):
-    #     try:
-    #         sample, _ = next(all_samples)
-    #         if torch.equal(sample, next_train_sample):
-    #             train += 1
-    #             next_train_sample, _ = next(train_samples)
-    #         elif torch.equal(sample, next_test_sample):
-    #             test += 1
-    #             next_test_sample, _ = next(test_samples)
-    #         else:
-    #             print(sample[0, 0, 0, 0].item())
-    #             raise RuntimeError("Sample is nor train nor test")
-    #     except StopIteration:
-    #         break
-    # total += 1
-    # print(f"Train: {train}/{total} = {train/total}")
-    # print(f"Test: {test}/{total} = {test/total}")
+    print(f"Validation: {validation}/{total} = {validation/total}")
