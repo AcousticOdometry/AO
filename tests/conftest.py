@@ -9,15 +9,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
-models_folder = os.getenv('AO_MODELS_FOLDER', None)
-model_paths = [
-    Path(models_folder) /
-    "torch-script;name_numpy-arrays;date_2022-05-23;time_13-39-14.pt"
-    ] if models_folder else []
+models_folder = os.getenv('MODELS_FOLDER', None)
+if models_folder:
+    models_folder = Path(models_folder)
+    model_folders = [f for f in models_folder.iterdir() if f.is_dir()]
+else:
+    model_folders = []
 
 
-@pytest.fixture(scope='session', params=model_paths)
-def model_path(request):
+@pytest.fixture(scope='session', params=model_folders)
+def model_folder(request):
     return request.param
 
 

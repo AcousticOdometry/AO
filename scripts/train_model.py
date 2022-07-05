@@ -71,13 +71,13 @@ class WebDatasetModule(pl.LightningDataModule):
         # self.num_classes
 
     def get_batch_labels(self, batch):
-        return torch.tensor([int(result['Vx']) * 100 for result in batch])
+        return torch.tensor([int(result['Vx'] * 100) for result in batch])
 
     def get_dataloader(self, shards):
         return wds.DataPipeline(
             wds.SimpleShardList(shards),
             wds.tarfile_to_samples(),
-            wds.shuffle(5000),
+            wds.shuffle(1E6),
             wds.decode(
                 wds.handle_extension('.npy', lambda x: np.load(io.BytesIO(x)))
                 ),
@@ -143,7 +143,7 @@ def train_model(
     split_shards: Callable[[Dict[str, dict]], Tuple[List[str], List[str]]],
     models_folder: str,
     batch_size: int = 32,
-    max_epochs: int = 15,
+    max_epochs: int = 1,
     gpus: int = -1,
     ):
     # Check if model already exists
@@ -160,7 +160,7 @@ def train_model(
         )
     # Initialize model
     # TODO use config
-    model = CNN(classes=8)
+    model = CNN(input_dim=(1, 200, 256), classes=8)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
