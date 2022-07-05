@@ -55,9 +55,9 @@ class CNN(pl.LightningModule):
         # print(prediction)
         # print(y.long())
         loss = self.cost_function(prediction, y)
+        self.log('train_loss', loss, on_epoch=True, on_step=True)
         acc = accuracy(prediction, y)
-        metrics = {"test_acc": acc, "test_loss": loss}
-        self.log_dict(metrics)
+        self.log('train_acc', acc, on_epoch=True, on_step=False)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -65,17 +65,17 @@ class CNN(pl.LightningModule):
         y = y.long()
         prediction = self(x.float())
         loss = self.cost_function(prediction, y)
+        self.log('val_loss', loss, on_epoch=True, on_step=False)
         acc = accuracy(prediction, y)
-        metrics = {"val_acc": acc, "val_loss": loss}
-        self.log_dict(metrics)
-        return metrics
+        self.log('val_acc', acc, on_epoch=True, on_step=False)
+        return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y = y.long()
         prediction = self(x.float())
         loss = self.cost_function(prediction, y)
+        self.log('test_loss', loss)
         acc = accuracy(prediction, y)
-        metrics = {"test_acc": acc, "test_loss": loss}
-        self.log_dict(metrics)
-        return metrics
+        self.log('test_acc', acc)
+        return loss
