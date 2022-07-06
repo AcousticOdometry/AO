@@ -34,7 +34,7 @@ class CNN(ClassificationBase):
             )
         self.conv2_drop = nn.Dropout2d()
         self.flatten = nn.Flatten()
-        fc1_input = self._forward(torch.zeros(input_dim)).shape[0]
+        fc1_input = torch.numel(self._forward(torch.zeros(input_dim)))
         self.fc1 = nn.Linear(fc1_input, hidden_size)
         self.fc2 = nn.Linear(hidden_size, self.hparams['output_dim'])
 
