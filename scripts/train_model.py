@@ -90,7 +90,7 @@ def train_model(
         )
     # Initialize model
     # TODO use config
-    model = CNN(input_dim=(1, 200, 256), classes=8)
+    model = CNN(input_dim=dataset.input_dim, classes=8)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
