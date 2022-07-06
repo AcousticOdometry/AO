@@ -1,10 +1,10 @@
 .vscode
 .DS_Store
 vcpkg_installed/
-libtorch/
+/libtorch/
 gdrive_credentials.json
-models/
-datasets/
+/models/
+/datasets/
 
 /_*/
 
