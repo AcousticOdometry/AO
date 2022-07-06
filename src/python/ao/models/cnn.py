@@ -1,3 +1,5 @@
+from ao.models.base import ClassificationBase
+
 import pytorch_lightning as pl
 
 import torch
@@ -9,72 +11,42 @@ from typing import Tuple
 from torchmetrics.functional import accuracy
 
 
-class CNN(pl.LightningModule):
+class CNN(ClassificationBase):
 
     def __init__(
         self,
         input_dim: Tuple[int, int, int],
         output_dim: int,
         lr: float = 0.0001,
+        conv1_filters: int = 64,
+        conv1_size: int = 5,
+        conv2_filters: int = 128,
+        conv2_size: int = 5,
+        hidden_size: int = 512,
         ):
-        super().__init__()
+        super().__init__(input_dim, output_dim, lr)
         self.save_hyperparameters()
-        self.cost_function = nn.CrossEntropyLoss()
-        # TODO get configuration for sizes
-        # TODO save configuration in config.yaml
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=5)
-        self.conv2 = nn.Conv2d(64, 128, kernel_size=5)
+        self.conv1 = nn.Conv2d(
+            input_dim[0], conv1_filters, kernel_size=conv1_size
+            )
+        self.conv2 = nn.Conv2d(
+            conv1_filters, conv2_filters, kernel_size=conv2_size
+            )
         self.conv2_drop = nn.Dropout2d()
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(171776, 512)
-        self.fc2 = nn.Linear(512, self.hparams['output_dim'])
+        fc1_input = self._forward(torch.zeros(input_dim)).shape[0]
+        self.fc1 = nn.Linear(fc1_input, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, self.hparams['output_dim'])
 
-    def forward(self, x):
+    def _forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = self.flatten(x)
+        return self.flatten(x)
+
+
+    def forward(self, x):
+        x = self._forward(x)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = F.relu(self.fc2(x))
         return F.log_softmax(x, dim=1)
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.hparams.lr
-            )
-        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
-        # return [optimizer], [lr_scheduler]
-        return optimizer
-
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        y = y.long()
-        # print('Train!')
-        prediction = self(x.float())
-        # print(prediction)
-        # print(y.long())
-        loss = self.cost_function(prediction, y)
-        self.log('train_loss', loss, on_epoch=True, on_step=True)
-        acc = accuracy(prediction, y)
-        self.log('train_acc', acc, on_epoch=True, on_step=False)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y = y.long()
-        prediction = self(x.float())
-        loss = self.cost_function(prediction, y)
-        self.log('val_loss', loss, on_epoch=True, on_step=False)
-        acc = accuracy(prediction, y)
-        self.log('val_acc', acc, on_epoch=True, on_step=False)
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        x, y = batch
-        y = y.long()
-        prediction = self(x.float())
-        loss = self.cost_function(prediction, y)
-        self.log('test_loss', loss)
-        acc = accuracy(prediction, y)
-        self.log('test_acc', acc)
-        return loss

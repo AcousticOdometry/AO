@@ -75,8 +75,9 @@ def train_model(
     shard_selection_strategy: str,
     models_folder: str,
     batch_size: int = 32,
-    max_epochs: int = 15,
     gpus: int = -1,
+    min_epochs: int = 10,
+    max_epochs: int = 20,
     ):
     # Check if model already exists
     if model_exists(name, models_folder):
@@ -89,8 +90,8 @@ def train_model(
         batch_size=batch_size
         )
     # Initialize model
-    # TODO use config
-    model = CNN(input_dim=dataset.input_dim, classes=8)
+    # TODO use config for output_dim
+    model = CNN(input_dim=dataset.input_dim, output_dim=8)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
@@ -98,7 +99,7 @@ def train_model(
     trainer = pl.Trainer(
         # precision=16
         accelerator='auto',
-        min_epochs=3,
+        min_epochs=min_epochs,
         max_epochs=max_epochs,
         logger=logger,
         default_root_dir=logging_dir,
@@ -162,7 +163,7 @@ if __name__ == '__main__':
         type=int,
         nargs='+',
         )
-    # TODO train_split
+    # TODO validation_split
     args = parser.parse_args()
 
     # Parse output argument
