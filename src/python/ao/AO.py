@@ -75,7 +75,7 @@ class AO:
         ):
         if model_parameters is None:
             # TODO Load from yaml file
-            pass
+            model_parameters = {'segment_frames': 100}
         extractors = [
             ao.extractor.GammatoneFilterbank(
                 num_samples=int(10 * 44100 / 1000),
@@ -87,7 +87,7 @@ class AO:
             name=model_folder.name,
             model_path=model_folder / 'model.pt',
             extractors=extractors,
-            num_frames=100,
+            num_frames=model_parameters['segment_frames'],
             device=device,
             )
         return model
