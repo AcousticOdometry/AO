@@ -3,6 +3,7 @@ import pandas as pd
 
 from typing import Union, List, Tuple, Optional
 
+from matplotlib.colors import to_rgba
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
@@ -81,19 +82,33 @@ def odometry_comparison(
     # Plot
     for odom, plot_kwargs in plots:
         if ax_position:
-            odom.plot(ax=ax_position, y='X', **plot_kwargs)
-            ax_position.set_ylabel('Position [m]')
+            odom.plot(ax=ax_position, y='X', **plot_kwargs, legend=False)
         if ax_speed:
-            odom.plot(ax=ax_speed, y='Vx', **plot_kwargs)
-            ax_speed.set_ylabel('Speed [m/s]')
+            ax_speed.plot(
+                odom.index,
+                odom.Vx,
+                'x--',
+                markersize=3,
+                alpha=0.5,
+                **plot_kwargs
+                )
     # Format X axis
     if ax_speed:
+        ax_speed.set_ylabel('Speed [m/s]')
         format_time_xaxis(ax_speed, start_timestamp, end_timestamp)
     if ax_position:
+        ax_position.set_ylabel('Position [m]')
         format_time_xaxis(ax_position, start_timestamp, end_timestamp)
     # Add supertitle
     if suptitle:
         fig.suptitle(suptitle)
+    # Add legend
+    fig.legend(
+        *(ax_speed if ax_speed else ax_position).get_legend_handles_labels(),
+        bbox_to_anchor=(0.5, 0),
+        loc='upper center'
+        )
+    fig.tight_layout()
     return fig, (ax_speed, ax_position)
 
 
@@ -166,9 +181,15 @@ def evaluation_comparison(
             )
     # Format X axis
     for ax in axs:
-        ax.legend()
         format_time_xaxis(ax, start_timestamp, end_timestamp)
     # Add supertitle
     if suptitle:
         fig.suptitle(suptitle)
+    # Add legend
+    fig.legend(
+        *axs[0].get_legend_handles_labels(),
+        bbox_to_anchor=(0.5, 0),
+        loc='upper center'
+        )
+    fig.tight_layout()
     return fig, axs

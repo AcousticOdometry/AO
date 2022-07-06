@@ -9,9 +9,10 @@ from matplotlib import pyplot as plt
 def savefig(request, output_folder):
 
     def _savefig(fig: plt.Figure):
-        fig.tight_layout()
         fig.savefig(
-            output_folder / (request.node.name.replace('test_', '') + '.png')
+            output_folder / (request.node.name.replace('test_', '') + '.png'),
+            bbox_extra_artists=(*fig.legends, ),
+            bbox_inches='tight',
             )
 
     return _savefig
@@ -39,9 +40,7 @@ def test_gammatonegram(audio_data, savefig):
         high_Hz=8000,
         temporal_integration=8 / 1000,  # [s]
         ax=ax,
-        pcolormesh_kwargs={
-            'cmap': 'jet'
-            },
+        pcolormesh_kwargs={'cmap': 'jet'},
         )
     ax.set_title('Ratemap')
     xlow, xhigh = ax.get_xlim()
