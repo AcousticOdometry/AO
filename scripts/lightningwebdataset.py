@@ -83,6 +83,8 @@ class LightningWebDataset(pl.LightningDataModule):
         ):
         super().__init__()
         shards, self.config = get_dataset_shards_and_config(dataset)
+        # TODO remove hardcoded once the dataset config is well defined
+        self.config = self.config['transform']['None']
         if shard_selection_strategy not in SHARD_SELECTION_STRATEGIES:
             raise ValueError(
                 "Invalid shard selection strategy. Available options: "
@@ -107,6 +109,20 @@ class LightningWebDataset(pl.LightningDataModule):
         # TODO self.dims
         # self.num_classes
         # Random number generators for splitting train and test samples
+
+    @property
+    def input_dim(self):
+        return (
+            len(self.config['extractors']),
+            self.config['segment_frames'],
+            self.config['frame_features'],
+            )
+
+    @property
+    def sample_duration(self):
+        return (
+            self.config['segment_frames'] * self.config['frame_duration']
+            ) / 1000
 
     def get_batch_labels(self, batch):
         return torch.tensor([int(result['Vx'] * 100) for result in batch])

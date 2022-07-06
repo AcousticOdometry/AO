@@ -13,9 +13,8 @@ class CNN(pl.LightningModule):
 
     def __init__(
         self,
-        input_dim: Tuple[int],
-        # TODO output_dim: Tuple[int],
-        classes: int,
+        input_dim: Tuple[int, int, int],
+        output_dim: int,
         lr: float = 0.0001,
         ):
         super().__init__()
@@ -28,7 +27,7 @@ class CNN(pl.LightningModule):
         self.conv2_drop = nn.Dropout2d()
         self.flatten = nn.Flatten()
         self.fc1 = nn.Linear(171776, 512)
-        self.fc2 = nn.Linear(512, self.hparams['classes'])
+        self.fc2 = nn.Linear(512, self.hparams['output_dim'])
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
