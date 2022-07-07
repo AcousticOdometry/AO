@@ -83,8 +83,6 @@ class LightningWebDataset(pl.LightningDataModule):
         ):
         super().__init__()
         shards, self.config = get_dataset_shards_and_config(dataset)
-        # TODO remove hardcoded once the dataset config is well defined
-        self.config = self.config['transform']['None']
         if shard_selection_strategy not in SHARD_SELECTION_STRATEGIES:
             raise ValueError(
                 "Invalid shard selection strategy. Available options: "

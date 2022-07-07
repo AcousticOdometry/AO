@@ -7,7 +7,7 @@ tool. Provide the `--help` flag to see the available options.
 This file can also be imported as a module in order to use the `train_model`
 function.
 """
-from ao.models import CNN
+import ao
 
 from gdrive import GDrive
 from lightningwebdataset import LightningWebDataset
@@ -48,24 +48,40 @@ def model_exists(name: str, models_folder: str) -> bool:
 def save_model(
     name: str,
     model: pl.LightningModule,
+    dataset: pl.LightningDataModule,
     models_folder: str,
     logging_dir: Path,
     ):
-    # TODO Save also config
     folder_id = GDrive.get_folder_id(models_folder)
     if folder_id:
+        # Create model folder
         gdrive = GDrive()
         model_folder = gdrive.create_folder(name, folder_id)
         model_folder.Upload()
+        # Save model
         model_file = gdrive.create_file('model.pt', model_folder['id'])
         torch.jit.save(model.to_torchscript(), logging_dir / 'model.pt')
         model_file.SetContentFile(str(logging_dir / 'model.pt'))
         model_file.Upload()
+        # Save dataset config
+        config_file = gdrive.create_file('dataset.yaml', model_folder['id'])
+        config_file.SetContentString(ao.io.yaml_dump(dataset.config))
+        config_file.Upload()
+        # Save hparams
+        hparams_file = gdrive.create_file('hparams.yaml', model_folder['id'])
+        # TODO hparams yaml is a bit weird
+        hparams_file.SetContentString(ao.io.yaml_dump(model.hparams))
+        hparams_file.Upload()
     else:
         # Models folder is a local folder
         model_folder = Path(models_folder) / name
         model_folder.mkdir(exist_ok=True)
+        # Save model
         torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
+        # Save dataset config
+        ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
+        # Save hparams
+        ao.io.yaml_dump(model.hparams, model_folder / 'hparams.yaml')
 
 
 def train_model(
@@ -91,7 +107,7 @@ def train_model(
         )
     # Initialize model
     # TODO use config for output_dim
-    model = CNN(input_dim=dataset.input_dim, output_dim=8)
+    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=8)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
@@ -112,7 +128,8 @@ def train_model(
     trainer.fit(model, dataset)
     trainer.test(model, dataset)
     # Save model
-    return save_model(name, model, models_folder, logging_dir)
+    print('Saving model...')
+    return save_model(name, model, dataset, models_folder, logging_dir)
 
 
 if __name__ == '__main__':
