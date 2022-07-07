@@ -6,6 +6,7 @@ from gdrive import GDrive
 import os
 import webdataset as wds
 
+from tqdm import tqdm
 from typing import Dict
 from pathlib import Path
 from dotenv import load_dotenv
@@ -15,35 +16,24 @@ CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
 def get_config_from_filesystem(folder: Path) -> dict:
-    config = {}
-    for config_file in folder.glob('*.yaml'):
-        file_params = ao.dataset.parse_filename(config_file.stem)
-        key = next(iter(file_params))
-        config.setdefault(key, {}).update({
-            file_params[key]: ao.io.yaml_load(config_file)
-            })
-    return config
+    return ao.io.yaml_load(folder / 'dataset.yaml')
 
 
 def get_shards_from_filesystem(folder: Path) -> Dict[str, dict]:
     return {
-        f"file:{path}": ao.dataset.parse_filename(path.stem)
+        f"file:{path}": {
+            'name': path.name,
+            **ao.dataset.parse_filename(path.stem)
+            }
         for path in sorted(folder.glob('*.tar'))
         }
 
 
 def get_config_from_gdrive(folder_id: str, gdrive: GDrive) -> dict:
-    config = {}
     for f in gdrive.list_folder(folder_id):
-        if f['title'].endswith('.yaml'):
-            file_params = ao.dataset.parse_filename(
-                f['title'].replace('.yaml', '')
-                )
-            key = next(iter(file_params))
-            config.setdefault(key, {}).update({
-                file_params[key]: gdrive.yaml_load(f)
-                })
-    return config
+        if f['title'] == 'dataset.yaml':
+            return gdrive.yaml_load(f)
+    raise RuntimeError('`dataset.yaml` not found in dataset folder')
 
 
 def get_shards_from_gdrive(folder_id: str, gdrive: GDrive) -> Dict[str, dict]:
@@ -51,13 +41,15 @@ def get_shards_from_gdrive(folder_id: str, gdrive: GDrive) -> Dict[str, dict]:
     folder.FetchMetadata(fields='title')
     dataset_folder = CACHE_FOLDER / folder['title']
     dataset_folder.mkdir(exist_ok=True)
+    shards = []  # Use a dict to avoid duplicates
     for f in gdrive.list_folder(folder_id):
-        if f['title'].endswith('.tar'):
-            # Check if cached in LOCAL_FOLDER
-            if (dataset_folder / f['title']).exists():
-                continue
-            print(f"Downloading {folder['title']} shard {f['title']}...")
-            f.GetContentFile(str(dataset_folder / f['title']))
+        if (
+            f['title'].endswith('.tar')
+            and not (dataset_folder / f['title']).exists()
+            ):
+            shards.append(f)
+    for shard in tqdm(shards, desc='Files', unit='file'):
+        gdrive.download_file(shard, dataset_folder / shard['title'])
     return get_shards_from_filesystem(dataset_folder)
 
 
@@ -116,6 +108,7 @@ def get_dataset_shards_and_config(dataset: str) -> Dict[str, Path]:
         "folder url."
         )
 
+
 if __name__ == "__main__":
     import io
     import json
@@ -139,7 +132,6 @@ if __name__ == "__main__":
             ),
         wds.to_tuple('npy', 'json'),
         )
-    for features, result in dataset:
-        print(f"{features.shape = }")
-        print(f"{result = }")
-        
+    features, result = next(iter(dataset))
+    print(f"{features.shape = }")
+    print(f"{result = }")
