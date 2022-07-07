@@ -64,30 +64,3 @@ class AO:
     def __call__(self, samples: np.ndarray):
         self.predict(samples)
         return self.prediction.argmax(1).sum().item()
-
-    @classmethod
-    def new(
-        cls,
-        model_folder: Path,
-        model_parameters: Optional[dict] = None,
-        device: torch.device = torch.
-        device('cuda' if torch.cuda.is_available() else 'cpu'),
-        ):
-        if model_parameters is None:
-            # TODO Load from yaml file
-            model_parameters = {'segment_frames': 100}
-        extractors = [
-            ao.extractor.GammatoneFilterbank(
-                num_samples=int(10 * 44100 / 1000),
-                num_features=256,
-                sample_rate=44100,
-                )
-            ]
-        model = cls(
-            name=model_folder.name,
-            model_path=model_folder / 'model.pt',
-            extractors=extractors,
-            num_frames=model_parameters['segment_frames'],
-            device=device,
-            )
-        return model
