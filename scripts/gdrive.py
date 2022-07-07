@@ -1,6 +1,7 @@
 import re
 import yaml
 
+from tqdm import tqdm
 from pathlib import Path
 from typing import Optional
 from pydrive2.auth import GoogleAuth
@@ -24,16 +25,39 @@ class GDrive:
             'includeItemsFromAllDrives': True,
             }).GetList()
 
+    def get_by_name(self, parent_id: str, name: str) -> list:
+        return self.drive.ListFile({
+            'q': (
+                f"'{parent_id}' in parents and trashed=false "
+                f"and name='{name}'"
+                ),
+            'supportsAllDrives': True,
+            'includeItemsFromAllDrives': True,
+            }).GetList()[0]
+
     @staticmethod
-    def is_folder(f: 'pydrive.file.GoogleDriveFile'):
+    def is_folder(f: 'pydrive2.file.GoogleDriveFile'):
         return f['mimeType'] == 'application/vnd.google-apps.folder'
 
-    def yaml_load(self, f: 'pydrive.file.GoogleDriveFile') -> dict:
+    @staticmethod
+    def yaml_load(f: 'pydrive2.file.GoogleDriveFile') -> dict:
         return yaml.safe_load(f.GetContentString())
+
+    @staticmethod
+    def download_file(f: 'pydrive2.file.GoogleDriveFile', to: Path) -> None:
+        pbar = tqdm(desc=f['title'], total=100.0, unit='%')
+
+        def callback(current, total):
+            pbar.n = current / total * 100.0
+            pbar.refresh()
+
+        out = f.GetContentFile(str(to), callback=callback)
+        pbar.close()
+        return out
 
     def create_folder(
             self, name: str, parent_id: str
-        ) -> 'pydrive.file.GoogleDriveFile':
+        ) -> 'pydrive2.file.GoogleDriveFile':
         return self.drive.CreateFile({
             'title': name,
             'supportsAllDrives': True,
@@ -46,7 +70,7 @@ class GDrive:
 
     def create_file(
             self, name: str, parent_id: str
-        ) -> 'pydrive.file.GoogleDriveFile':
+        ) -> 'pydrive2.file.GoogleDriveFile':
         return self.drive.CreateFile({
             'title': name,
             'supportsAllDrives': True,
