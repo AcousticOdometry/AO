@@ -120,7 +120,9 @@ def train_model(
         logger=logger,
         default_root_dir=logging_dir,
         gpus=gpus,
-        callbacks=[EarlyStopping(monitor='val_acc', mode='max')]
+        callbacks=[
+            EarlyStopping(monitor='val_acc', mode='max', min_delta=-0.001)
+            ]
         # auto_lr_find=True,
         # auto_scale_batch_size='binsearch',
         )
