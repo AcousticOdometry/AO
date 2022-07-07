@@ -45,7 +45,12 @@ class GDrive:
 
     @staticmethod
     def download_file(f: 'pydrive2.file.GoogleDriveFile', to: Path) -> None:
-        pbar = tqdm(desc=f['title'], total=100.0, unit='%')
+        pbar = tqdm(
+            desc=f['title'],
+            total=100.0,
+            unit='%',
+            bar_format='{l_bar}{bar}| [{elapsed}<{remaining}, {rate_fmt}]'
+            )
 
         def callback(current, total):
             pbar.n = current / total * 100.0
