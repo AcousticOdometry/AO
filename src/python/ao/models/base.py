@@ -28,7 +28,6 @@ class ClassificationBase(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y = y.long()
         # print('Train!')
         prediction = self(x.float())
         # print(prediction)
@@ -41,7 +40,6 @@ class ClassificationBase(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y = y.long()
         prediction = self(x.float())
         loss = self.cost_function(prediction, y)
         self.log('val_loss', loss, on_epoch=True, on_step=False)
@@ -51,7 +49,6 @@ class ClassificationBase(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y = y.long()
         prediction = self(x.float())
         loss = self.cost_function(prediction, y)
         self.log('test_loss', loss)

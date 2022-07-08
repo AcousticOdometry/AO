@@ -1,7 +1,7 @@
 def model_factory(
-    name,
-    size: int,
     type: str,
+    bins: List[Int],
+    
     classification: bool,
     log_distribution: bool,
     min_output: float,
