@@ -82,6 +82,7 @@ class LightningWebDataset(pl.LightningDataModule):
             shuffle: int = 1E6,
         ):
         super().__init__()
+        # Get and split shards
         shards, self.config = get_dataset_shards_and_config(dataset)
         if shard_selection_strategy not in SHARD_SELECTION_STRATEGIES:
             raise ValueError(
@@ -90,6 +91,15 @@ class LightningWebDataset(pl.LightningDataModule):
                 )
         select_shards = SHARD_SELECTION_STRATEGIES[shard_selection_strategy]
         self.train_shards, self.test_shards = select_shards(shards)
+        length = 0
+        for shard in self.train_shards:
+            length += self.config['shards'][shards[shard]['name']]['count']
+        self.train_length = length
+        length = 0
+        for shard in self.test_shards:
+            length += self.config['shards'][shards[shard]['name']]['count']
+        self.test_length = length
+        # Check hyperparameters
         if validation_split >= 1 or validation_split < 0:
             raise ValueError(
                 "`validation_split` must be in range [0,1[ but is "
@@ -140,18 +150,28 @@ class LightningWebDataset(pl.LightningDataModule):
             )
 
     def train_dataloader(self):
-        return self.get_dataloader(
+        dl = self.get_dataloader(
             self.train_shards, split_train(self.validation_split, self.seed)
             )
+        dl.with_length(
+            self.train_length * (1 - self.validation_split) / self.batch_size
+            )
+        return dl
 
     def val_dataloader(self):
-        return self.get_dataloader(
+        dl = self.get_dataloader(
             self.train_shards,
             split_validation(self.validation_split, self.seed)
             )
+        dl.with_length(
+            self.train_length * self.validation_split / self.batch_size
+            )
+        return dl
 
     def test_dataloader(self):
-        return self.get_dataloader(shards=self.test_shards)
+        dl = self.get_dataloader(shards=self.test_shards)
+        dl.with_length(self.test_length / self.batch_size)
+        return dl
 
 
 if __name__ == "__main__":
