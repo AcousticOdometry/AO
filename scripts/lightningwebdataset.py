@@ -169,9 +169,11 @@ class LightningWebDataset(pl.LightningDataModule):
         return dl
 
     def test_dataloader(self):
-        dl = self.get_dataloader(shards=self.test_shards)
-        dl.with_length(self.test_length / self.batch_size)
-        return dl
+        if self.test_shards:
+            dl = self.get_dataloader(shards=self.test_shards)
+            dl.with_length(self.test_length / self.batch_size)
+            return dl
+        return None
 
 
 if __name__ == "__main__":
