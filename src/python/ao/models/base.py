@@ -18,6 +18,7 @@ class ClassificationBase(pl.LightningModule):
         ):
         super().__init__()
         self.save_hyperparameters()
+        self.automatic_optimization = False
         self.cost_function = nn.CrossEntropyLoss()
 
     def configure_optimizers(self):
@@ -28,11 +29,12 @@ class ClassificationBase(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        # print('Train!')
+        optimizer = self.optimizers()
+        optimizer.zero_grad()
         prediction = self(x.float())
-        # print(prediction)
-        # print(y.long())
         loss = self.cost_function(prediction, y)
+        loss.backward()
+        optimizer.step()
         self.log('train_loss', loss, on_epoch=True, on_step=True)
         acc = accuracy(prediction, y)
         self.log('train_acc', acc, on_epoch=True, on_step=False)
