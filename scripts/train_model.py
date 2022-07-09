@@ -107,7 +107,7 @@ def train_model(
         )
     # Initialize model
     # TODO use config for output_dim
-    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=8)
+    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=7)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
@@ -120,9 +120,9 @@ def train_model(
         logger=logger,
         default_root_dir=logging_dir,
         gpus=gpus,
-        callbacks=[
-            EarlyStopping(monitor='val_acc', mode='max', min_delta=-0.001)
-            ]
+        # callbacks=[
+        #     EarlyStopping(monitor='val_acc', mode='max', min_delta=-0.001)
+        #     ]
         # auto_lr_find=True,
         # auto_scale_batch_size='binsearch',
         )
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     train_model(
         name=args.name,
         dataset=args.dataset,
-        validation_split=0.2,
+        validation_split=0,
         shard_selection_strategy='base',
         models_folder=args.output,
         batch_size=args.batch_size,

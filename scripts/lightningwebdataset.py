@@ -3,12 +3,30 @@ from dataset import get_dataset_shards_and_config
 import io
 import torch
 import random
+import logging
 import numpy as np
 import webdataset as wds
 import pytorch_lightning as pl
 
+from pathlib import Path
+from datetime import datetime
 from functools import partial
 from typing import Dict, List, Tuple
+
+logging_folder = Path().parent / 'logs'
+logging_folder.mkdir(exist_ok=True)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+logging.basicConfig(
+    format="[%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(
+            logging_folder / datetime.now().strftime('%Y%m%d_%H%M%S.log')
+            ),
+        stream_handler,
+        ],
+    level=logging.DEBUG
+    )
 
 
 def _select_shards_by_transform_and_device(
@@ -50,26 +68,6 @@ SHARD_SELECTION_STRATEGIES = {
     }
 
 
-def _split_train(data, validation_split, random_seed):
-    assert 0.0 <= validation_split <= 1.0
-    rng = random.Random(random_seed)
-    for sample in data:
-        if rng.uniform(0.0, 1.0) >= validation_split:
-            yield sample
-
-
-def _split_validation(data, validation_split, random_seed):
-    assert 0.0 <= validation_split <= 1.0
-    rng = random.Random(random_seed)
-    for sample in data:
-        if rng.uniform(0.0, 1.0) < validation_split:
-            yield sample
-
-
-split_train = wds.filters.pipelinefilter(_split_train)
-split_validation = wds.filters.pipelinefilter(_split_validation)
-
-
 class LightningWebDataset(pl.LightningDataModule):
 
     def __init__(
@@ -82,23 +80,6 @@ class LightningWebDataset(pl.LightningDataModule):
             shuffle: int = 1E6,
         ):
         super().__init__()
-        # Get and split shards
-        shards, self.config = get_dataset_shards_and_config(dataset)
-        if shard_selection_strategy not in SHARD_SELECTION_STRATEGIES:
-            raise ValueError(
-                "Invalid shard selection strategy. Available options: "
-                f"{list(SHARD_SELECTION_STRATEGIES.keys())}"
-                )
-        select_shards = SHARD_SELECTION_STRATEGIES[shard_selection_strategy]
-        self.train_shards, self.test_shards = select_shards(shards)
-        length = 0
-        for shard in self.train_shards:
-            length += self.config['shards'][shards[shard]['name']]['count']
-        self.train_length = length
-        length = 0
-        for shard in self.test_shards:
-            length += self.config['shards'][shards[shard]['name']]['count']
-        self.test_length = length
         # Check hyperparameters
         if validation_split >= 1 or validation_split < 0:
             raise ValueError(
@@ -106,17 +87,42 @@ class LightningWebDataset(pl.LightningDataModule):
                 f"{validation_split}"
                 )
         self.validation_split = validation_split
+        if shard_selection_strategy not in SHARD_SELECTION_STRATEGIES:
+            raise ValueError(
+                "Invalid shard selection strategy. Available options: "
+                f"{list(SHARD_SELECTION_STRATEGIES.keys())}"
+                )
+        self.select_shards = SHARD_SELECTION_STRATEGIES[
+            shard_selection_strategy]
         self.batch_size = batch_size
         self.seed = seed
         self.shuffle = shuffle
         # Applied to features
-        self.get_batch_features = torch.from_numpy
         # TODO regression or classification
         # TODO Vx or slip + Vw ?
         # self.get_label = lambda result: torch.tensor(int(result['Vx'] * 100))
         # TODO self.dims
         # self.num_classes
         # Random number generators for splitting train and test samples
+        self._prepare_data(dataset)
+
+    def _prepare_data(self, dataset) -> None:
+        # Get and split shards
+        shards, self.config = get_dataset_shards_and_config(dataset)
+        self.train_shards, self.test_shards = self.select_shards(shards)
+        # Compute shard sample lengths
+        self.train_length = sum([
+            self.config['shards'][shards[shard]['name']]['count']
+            for shard in self.train_shards
+            ])
+        self.test_length = sum([
+            self.config['shards'][shards[shard]['name']]['count']
+            for shard in self.test_shards
+            ])
+        logging.info(
+            f"Train: {self.train_length} samples, "
+            f"{self.train_length / self.batch_size} batches"
+            )
 
     @property
     def input_dim(self):
@@ -132,47 +138,41 @@ class LightningWebDataset(pl.LightningDataModule):
             self.config['segment_frames'] * self.config['frame_duration']
             ) / 1000
 
-    def get_batch_labels(self, batch):
-        return torch.tensor([round(result['Vx'] * 100) for result in batch])
+    def get_features(self, array):
+        return torch.from_numpy(array)
 
-    def get_dataloader(self, shards, *filter_shards):
+    def get_label(self, result):
+        return round(result['Vx'] * 100)
+
+    def _get_dataset(self, shards):
         return wds.DataPipeline(
             wds.SimpleShardList(shards),
             wds.tarfile_to_samples(),
+            wds.shuffle(self.shuffle),
             wds.decode(
                 wds.handle_extension('.npy', lambda x: np.load(io.BytesIO(x)))
                 ),
             wds.to_tuple('npy', 'json'),
-            wds.batched(self.batch_size, partial=False),
-            wds.map_tuple(self.get_batch_features, self.get_batch_labels),
-            *filter_shards,
-            wds.shuffle(self.shuffle),
+            wds.map_tuple(self.get_features, self.get_label),
+            # wds.batched(self.batch_size, partial=False),
             )
 
     def train_dataloader(self):
-        dl = self.get_dataloader(
-            self.train_shards, split_train(self.validation_split, self.seed)
+        logging.info('train_dataloader()')
+        dataset = self._get_dataset(self.train_shards).with_length(
+            self.train_length / self.batch_size
             )
-        dl.with_length(
-            self.train_length * (1 - self.validation_split) / self.batch_size
-            )
-        return dl
+        return torch.utils.data.DataLoader(dataset, batch_size=self.batch_size)
 
     def val_dataloader(self):
-        dl = self.get_dataloader(
-            self.train_shards,
-            split_validation(self.validation_split, self.seed)
-            )
-        dl.with_length(
-            self.train_length * self.validation_split / self.batch_size
-            )
-        return dl
+        logging.info('val_dataloader()')
+        return None
 
     def test_dataloader(self):
         if self.test_shards:
-            dl = self.get_dataloader(shards=self.test_shards)
-            dl.with_length(self.test_length / self.batch_size)
-            return dl
+            return self._get_dataset(shards=self.test_shards).with_length(
+                self.test_length / self.batch_size
+                )
         return None
 
 

@@ -39,23 +39,13 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
-        'segment-120': {
-            'dataset': 'segment-120',
+        'equalized-base-augmented': {
+            'dataset': 'equalized-base-augmented',
             'validation_split': 0.2,
             'shard_selection_strategy': 'base',
             },
-        'duration-05': {
-            'dataset': 'duration-05',
-            'validation_split': 0.2,
-            'shard_selection_strategy': 'base',
-            },
-        'overlap-06': {
-            'dataset': 'overlap-06',
-            'validation_split': 0.2,
-            'shard_selection_strategy': 'base',
-            },
-        'no-negative-slip': {
-            'dataset': 'no-negative-slip',
+        'wtb-experiment-1-v2': {
+            'dataset': 'wtb-experiment-1',
             'validation_split': 0.2,
             'shard_selection_strategy': 'base',
             },

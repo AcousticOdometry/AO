@@ -48,8 +48,9 @@ def get_shards_from_gdrive(folder_id: str, gdrive: GDrive) -> Dict[str, dict]:
             and not (dataset_folder / f['title']).exists()
             ):
             shards.append(f)
-    for shard in tqdm(shards, desc='Files', unit='file'):
-        gdrive.download_file(shard, dataset_folder / shard['title'])
+    if shards: # Avoids creating a progress bar when it is not necessary
+        for shard in tqdm(shards, desc='Files', unit='file'):
+            gdrive.download_file(shard, dataset_folder / shard['title'])
     return get_shards_from_filesystem(dataset_folder)
 
 

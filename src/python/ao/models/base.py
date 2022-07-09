@@ -37,7 +37,7 @@ class ClassificationBase(pl.LightningModule):
         optimizer.step()
         self.log('train_loss', loss, on_epoch=True, on_step=True)
         acc = accuracy(prediction, y)
-        self.log('train_acc', acc, on_epoch=True, on_step=False)
+        self.log('train_acc', acc, on_epoch=True, on_step=False, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -46,7 +46,7 @@ class ClassificationBase(pl.LightningModule):
         loss = self.cost_function(prediction, y)
         self.log('val_loss', loss, on_epoch=True, on_step=False)
         acc = accuracy(prediction, y)
-        self.log('val_acc', acc, on_epoch=True, on_step=False)
+        self.log('val_acc', acc, on_epoch=True, on_step=False, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
