@@ -109,8 +109,6 @@ def features(
     Args:
         data (np.ndarray): Audio signal with shape (n_channels, n_samples)
 
-        frame_samples (int): Number of samples in each frame
-
         extractors (List[ao.extractor.Extractor]): Feature extractor, it will
             be applied to each frame.
 

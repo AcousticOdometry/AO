@@ -195,7 +195,7 @@ if __name__ == '__main__':
     train_model(
         name=args.name,
         dataset=args.dataset,
-        validation_split=0,
+        validation_split=0.2,
         shard_selection_strategy='base',
         models_folder=args.output,
         batch_size=args.batch_size,
