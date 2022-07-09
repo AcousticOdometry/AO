@@ -133,7 +133,7 @@ class LightningWebDataset(pl.LightningDataModule):
             ) / 1000
 
     def get_batch_labels(self, batch):
-        return torch.tensor([int(result['Vx'] * 100) for result in batch])
+        return torch.tensor([round(result['Vx'] * 100) for result in batch])
 
     def get_dataloader(self, shards, *filter_shards):
         return wds.DataPipeline(
