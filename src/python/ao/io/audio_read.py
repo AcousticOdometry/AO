@@ -1,3 +1,4 @@
+import wave
 import librosa
 import tempfile
 import requests
@@ -6,7 +7,27 @@ import numpy as np
 
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Tuple, Union
+from typing import Tuple, Union, BinaryIO
+
+
+def _wave_read(file: Union[str, BinaryIO]) -> Tuple[np.ndarray, int]:
+    """Reads content of a `wav` file into a numpy array.
+    Args:
+        file (Union[str, BinaryIO]): File path string or file-like object.
+    Returns:
+        Tuple[np.ndarray, int]: Tuple containing the signal array and sampling
+        rate.
+    """
+    with wave.open(file, mode='rb') as f:
+        return (
+            np.reshape(
+                np.frombuffer(
+                    f.readframes(f.getnframes()),
+                    dtype=f'int{f.getsampwidth()*8}'
+                    ), (-1, f.getnchannels()),
+                ).T.astype(np.float64, order='F'),
+            f.getframerate(),
+            )
 
 
 def _audio_read(
@@ -36,8 +57,6 @@ def _audio_read(
 
 def audio_read(
     path: Union[str, Path],
-    resample_to: int = None,
-    mono: bool = False,
     **kwargs,
     ) -> Tuple[np.ndarray, int]:
     """Reads content of an audio file into a floating point numpy array.
@@ -56,18 +75,20 @@ def audio_read(
         Tuple[np.ndarray, int]: Tuple containing the signal array and sampling
         rate.
     """
-    if Path(path).exists():  # If it is a file found in the system
-        return _audio_read(path, resample_to=resample_to, mono=mono, **kwargs)
     str_path = str(path)
+    if Path(path).exists():  # If it is a file found in the system
+        return _wave_read(str_path)
+        # return _audio_read(path, resample_to=resample_to, mono=mono, **kwargs)
     urlparsed = urlparse(str_path)
     if all([urlparsed.scheme, urlparsed.netloc]):  # If it is a valid URL
         with tempfile.TemporaryFile() as temp:
             content = requests.get(str_path).content
             temp.write(content)
             temp.seek(0)
-            return _audio_read(
-                temp, resample_to=resample_to, mono=mono, **kwargs
-                )
+            return _wave_read(temp)
+            # return _audio_read(
+            #     temp, resample_to=resample_to, mono=mono, **kwargs
+            #     )
     raise ValueError(
         f'{str_path} is neither a URL nor a file found in the system'
         )

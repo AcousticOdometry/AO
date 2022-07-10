@@ -1,4 +1,3 @@
-from operator import index
 import ao
 
 import os
@@ -6,13 +5,18 @@ import pytest
 import pandas as pd
 
 from pathlib import Path
+from warnings import warn
 from dotenv import load_dotenv
 
 load_dotenv()
 models_folder = os.getenv('MODELS_FOLDER', None)
 if models_folder:
-    models_folder = Path(models_folder)
-    model_folders = [f for f in models_folder.iterdir() if f.is_dir()]
+    try:
+        models_folder = Path(models_folder)
+        model_folders = [f for f in models_folder.iterdir() if f.is_dir()]
+    except Exception as e:
+        warn(f"Could not load models folder: {e}")
+        model_folders = []
 else:
     model_folders = []
 
