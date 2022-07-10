@@ -7,10 +7,11 @@ tool. Provide the `--help` flag to see the available options.
 This file can also be imported as a module in order to use the `train_model`
 function.
 """
+from cProfile import label
 import ao
 
 from gdrive import GDrive
-from lightningwebdataset import LightningWebDataset
+from wheel_test_bed_dataset import get_dataloaders
 
 import os
 import torch
@@ -48,7 +49,7 @@ def model_exists(name: str, models_folder: str) -> bool:
 def save_model(
     name: str,
     model: pl.LightningModule,
-    dataset: pl.LightningDataModule,
+    dataset_config: dict,
     models_folder: str,
     logging_dir: Path,
     ):
@@ -63,9 +64,9 @@ def save_model(
         torch.jit.save(model.to_torchscript(), logging_dir / 'model.pt')
         model_file.SetContentFile(str(logging_dir / 'model.pt'))
         model_file.Upload()
-        # Save dataset config
+        # Save dataset dataset_config
         config_file = gdrive.create_file('dataset.yaml', model_folder['id'])
-        config_file.SetContentString(ao.io.yaml_dump(dataset.config))
+        config_file.SetContentString(ao.io.yaml_dump(dataset_config))
         config_file.Upload()
         # Save hparams
         hparams_file = gdrive.create_file('hparams.yaml', model_folder['id'])
@@ -78,8 +79,8 @@ def save_model(
         model_folder.mkdir(exist_ok=True)
         # Save model
         torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
-        # Save dataset config
-        ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
+        # Save dataset dataset_config
+        ao.io.yaml_dump(dataset_config, model_folder / 'dataset.yaml')
         # Save hparams
         ao.io.yaml_dump(model.hparams, model_folder / 'hparams.yaml')
 
@@ -99,14 +100,15 @@ def train_model(
     if model_exists(name, models_folder):
         raise ValueError(f"Model {name} already exists in {models_folder}")
     # Get dataset
-    dataset = LightningWebDataset(
-        dataset=dataset,
-        validation_split=validation_split,
-        shard_selection_strategy=shard_selection_strategy,
-        batch_size=batch_size
+    loaders = get_dataloaders(
+        dataset,
+        label_from_sample=lambda sample: round(sample['Vx'] * 100),
+        train_split=1 - validation_split,
+        batch_size=batch_size,
         )
+    dataset = loaders['test'].dataset
     # Initialize model
-    # TODO use config for output_dim
+    # TODO use dataset for output_dim
     model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=7)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
@@ -126,12 +128,12 @@ def train_model(
         # auto_lr_find=True,
         # auto_scale_batch_size='binsearch',
         )
-    trainer.tune(model, dataset)
-    trainer.fit(model, dataset)
-    trainer.test(model, dataset)
+    # trainer.tune(model, dataset)
+    trainer.fit(model, loaders['train'], loaders['val'])
+    trainer.test(model, loaders['test'])
     # Save model
     print('Saving model...')
-    return save_model(name, model, dataset, models_folder, logging_dir)
+    return save_model(name, model, dataset.config, models_folder, logging_dir)
 
 
 if __name__ == '__main__':
