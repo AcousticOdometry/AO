@@ -107,8 +107,8 @@ class WheelTestBedDataset(pl.LightningDataModule):
     def __init__(
         self,
         dataset: str,
-        split_data: Callable[[pd.DataFrame], Tuple[List[int], List[int],
-                                                   List[int]]],
+        split_data: Callable[[pd.DataFrame, dict], Tuple[List[int], List[int],
+                                                         List[int]]],
         datasets_folder: Optional[str] = os.getenv('DATASETS_FOLDER', None),
         get_label: Callable[[dict], torch.tensor] = lambda sample: sample,
         batch_size: int = 6,
@@ -139,7 +139,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
             ignore_index=True,
             )
         self.train_indices, self.val_indices, self.test_indices = split_data(
-            self.data
+            self.data, self.config
             )
 
     @property

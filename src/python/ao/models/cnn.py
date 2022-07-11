@@ -17,7 +17,7 @@ class CNN(ClassificationBase):
         self,
         input_dim: Tuple[int, int, int],
         output_dim: int,
-        lr: float = 0.0001,
+        lr: float,
         conv1_filters: int = 64,
         conv1_size: int = 5,
         conv2_filters: int = 128,
@@ -26,6 +26,7 @@ class CNN(ClassificationBase):
         ):
         super().__init__(input_dim, output_dim, lr)
         self.save_hyperparameters()
+        self.normalization = nn.BatchNorm2d(input_dim[0], affine=False)
         self.conv1 = nn.Conv2d(
             input_dim[0], conv1_filters, kernel_size=conv1_size
             )
@@ -43,8 +44,8 @@ class CNN(ClassificationBase):
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
         return self.flatten(x)
 
-
     def forward(self, x):
+        x = self.normalization(x)
         x = self._forward(x)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)

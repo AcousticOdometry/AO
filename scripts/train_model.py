@@ -92,7 +92,8 @@ def save_model(
 
 
 def _split_by_transform_and_devices(
-    data,
+    data: 'pd.DataFrame',
+    config: dict,
     use_transforms: List[str] = ['None'],
     train_split: float = 0.8,
     test_devices: List[str] = ['rode-videomic-ntg-top', 'rode-smartlav-top'],
@@ -107,12 +108,14 @@ def _split_by_transform_and_devices(
             test_indices.append(index)
         elif sample['device'] in val_devices:
             val_indices.append(index)
-        elif random.uniform(0, 1) < train_split:
+        elif random.uniform(0, 1) <= train_split:
             train_indices.append(index)
         else:
             val_indices.append(index)
     return (train_indices, val_indices, test_indices)
 
+
+# TODO _split_no_negative_slip
 
 SPLIT_STRATEGIES = {
     'base':
@@ -159,6 +162,10 @@ def _bucketize_sample(sample: dict, boundaries: np.ndarray, var: str):
         )
 
 
+def _get_label(result):
+    return torch.tensor(round(result['Vx'] * 100))
+
+
 def train_model(
     name: str,
     dataset: str,
@@ -169,7 +176,7 @@ def train_model(
     min_epochs: int = 5,
     max_epochs: int = 20,
     architecture: str = 'CNN',
-    boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.065, 7),
+    boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
     **model_kwargs,
     ):
     # Check if model already exists
@@ -201,6 +208,12 @@ def train_model(
         batch_size=batch_size,
         get_label=get_label,
         )
+    for split in ['train', 'val', 'test']:
+        n_samples = len(getattr(dataset, f'{split}_data').index)
+        print(
+            f"{split} samples: {n_samples}, "
+            f"batches: {int(n_samples / dataset.batch_size)}"
+            )
     config['split_strategy'] = split_strategy
     # Initialize model
     if architecture == 'CNN':
@@ -208,7 +221,10 @@ def train_model(
     else:
         raise ValueError(f"Unknown architecture {architecture}")
     model = model_class(
-        input_dim=dataset.input_dim, output_dim=output_dim, **model_kwargs
+        input_dim=dataset.input_dim,
+        output_dim=output_dim,
+        lr=0.0001,
+        **model_kwargs
         )
     config['class'] = model_class.__name__
     # Configure trainer and train
@@ -222,9 +238,8 @@ def train_model(
         logger=logger,
         default_root_dir=logging_dir,
         gpus=gpus,
-        callbacks=[EarlyStopping(monitor='val_acc', mode='max')]
+        callbacks=[EarlyStopping(monitor='val_acc', mode='max')],
         # auto_lr_find=True,
-        # auto_scale_batch_size='binsearch',
         )
     # trainer.tune(model, dataset)
     trainer.fit(model, dataset)

@@ -14,14 +14,14 @@ class ClassificationBase(pl.LightningModule):
         self,
         input_dim: Tuple[int, int, int],
         output_dim: int,
-        lr: float = 0.0001,
+        lr: float,
         ):
         super().__init__()
         self.save_hyperparameters()
         self.cost_function = nn.CrossEntropyLoss()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams['lr'])
         # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1)
         # return [optimizer], [lr_scheduler]
         return optimizer
@@ -37,10 +37,10 @@ class ClassificationBase(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        pred = self(x.float())
-        loss = self.cost_function(pred, y)
+        prediction = self(x.float())
+        loss = self.cost_function(prediction, y)
         self.log('val_loss', loss, on_epoch=True, on_step=False)
-        acc = accuracy(pred, y)
+        acc = accuracy(prediction, y)
         self.log('val_acc', acc, on_epoch=True, on_step=False, prog_bar=True)
         return loss
 

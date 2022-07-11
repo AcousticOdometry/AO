@@ -11,6 +11,7 @@ which model should be trained, with which dataset, and with which parameters.
 from train_model import train_model
 
 import os
+import numpy as np
 
 from warnings import warn
 from dotenv import load_dotenv
@@ -39,15 +40,17 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
-        'equalized-base-augmented': {
-            'dataset': 'equalized-base-augmented',
-            'validation_split': 0.2,
-            'shard_selection_strategy': 'base',
+        'base': {
+            'dataset': 'base',
+            'split_strategy': 'base',
+            'architecture': 'CNN',
+            'boundaries':  np.linspace(0.005, 0.065, 7),
             },
-        'wtb-experiment-1-v2': {
-            'dataset': 'wtb-experiment-1',
-            'validation_split': 0.2,
-            'shard_selection_strategy': 'base',
+        'segment-100': {
+            'dataset': 'segment-100',
+            'split_strategy': 'base',
+            'architecture': 'CNN',
+            'boundaries':  np.linspace(0.005, 0.065, 7),
             },
         }
     for name, kwargs in models_to_train.items():
