@@ -98,6 +98,10 @@ def _subset_samples(data, indices):
 subset_samples = wds.filters.pipelinefilter(_subset_samples)
 
 
+def _decode_npy(_bytes):
+    return np.load(io.BytesIO(_bytes))
+
+
 class WheelTestBedDataset(pl.LightningDataModule):
 
     def __init__(
@@ -138,7 +142,6 @@ class WheelTestBedDataset(pl.LightningDataModule):
             self.data
             )
 
-
     @property
     def input_dim(self):
         return (
@@ -176,9 +179,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
             wds.SimpleShardList(self.shards),
             wds.tarfile_to_samples(),
             subset_samples(indices),  # Filters the samples
-            wds.decode(
-                wds.handle_extension('.npy', lambda x: np.load(io.BytesIO(x)))
-                ),
+            wds.decode(wds.handle_extension('.npy', _decode_npy)),
             wds.to_tuple('npy', 'json'),
             wds.map_tuple(self.get_features, self.label_from_sample),
             wds.batched(self.batch_size, partial=False),
