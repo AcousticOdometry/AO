@@ -141,6 +141,8 @@ SPLIT_STRATEGIES = {
             ),
     }
 
+def _get_label(result):
+    return torch.tensor(round(result['Vx'] * 100))
 
 def train_model(
         name: str,
@@ -161,12 +163,12 @@ def train_model(
         dataset,
         split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
-        get_label=lambda result: torch.tensor(round(result['Vx'] * 100)),
+        get_label=_get_label,
         )
     dataset.config['split_strategy'] = split_strategy
     # Initialize model
     # TODO use dataset for output_dim
-    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=7, **kwargs)
+    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=9, **kwargs)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
