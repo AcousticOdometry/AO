@@ -64,9 +64,9 @@ def save_model(
     torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
     ao.io.yaml_dump(model.hparams, model_folder / 'hparams.yaml')
     ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
-    for name in ['train', 'val', 'test']:
-        getattr(dataset, f"{name}_data").to_csv(
-            model_folder / f"{name}_data.csv", index_label='index'
+    for split in ['train', 'val', 'test']:
+        getattr(dataset, f"{split}_data").to_csv(
+            model_folder / f"{split}_data.csv", index_label='index'
             )
     # Upload to Google Drive if needed
     if folder_id:
@@ -88,13 +88,17 @@ def _split_by_transform_and_devices(
     use_transforms: List[str] = ['None'],
     train_split: float = 0.8,
     test_devices: List[str] = ['rode-videomic-ntg-top', 'rode-smartlav-top'],
+    val_devices: List[str] = [],
     ):
     train_indices, val_indices, test_indices = [], [], []
     for index, sample in data.iterrows():
-        if sample['transform'] not in use_transforms:
-            continue
+        if use_transforms is not None:
+            if sample['transform'] not in use_transforms:
+                continue
         if sample['device'] in test_devices:
             test_indices.append(index)
+        elif sample['device'] in val_devices:
+            val_indices.append(index)
         elif random.uniform(0, 1) < train_split:
             train_indices.append(index)
         else:
@@ -108,20 +112,46 @@ SPLIT_STRATEGIES = {
             _split_by_transform_and_devices,
             use_transforms=['None'],
             train_split=0.8,
-            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
+            val_devices=[],
+            ),
+    'validate-other-devices':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None'],
+            train_split=1,
+            test_devices=[],
+            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            ),
+    'all-devices':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None'],
+            train_split=0.8,
+            test_devices=[],
+            val_devices=[],
+            ),
+    'all-transforms':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=None,
+            train_split=0.8,
+            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
+            val_devices=[],
             ),
     }
 
 
 def train_model(
-    name: str,
-    dataset: str,
-    split_strategy: str,
-    models_folder: str,
-    batch_size: int = 32,
-    gpus: int = -1,
-    min_epochs: int = 10,
-    max_epochs: int = 20,
+        name: str,
+        dataset: str,
+        split_strategy: str,
+        models_folder: str,
+        batch_size: int = 32,
+        gpus: int = -1,
+        min_epochs: int = 10,
+        max_epochs: int = 20,
+        **kwargs
     ):
     # Check if model already exists
     if model_exists(name, models_folder):
@@ -131,12 +161,12 @@ def train_model(
         dataset,
         split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
-        label_from_sample=lambda result: torch.
-        tensor(round(result['Vx'] * 100)),
+        get_label=lambda result: torch.tensor(round(result['Vx'] * 100)),
         )
+    dataset.config['split_strategy'] = split_strategy
     # Initialize model
     # TODO use dataset for output_dim
-    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=7)
+    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=7, **kwargs)
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
@@ -182,6 +212,13 @@ if __name__ == '__main__':
             "Path to the dataset. If DATASETS_FOLDER environment variable is "
             "set, the path provided here can be relative to that folder."
             )
+        )
+    parser.add_argument(
+        '--split-strategy',
+        '-s',
+        default=list(SPLIT_STRATEGIES.keys())[0],
+        type=str,
+        choices=SPLIT_STRATEGIES.keys()
         )
     parser.add_argument(
         '--output',
