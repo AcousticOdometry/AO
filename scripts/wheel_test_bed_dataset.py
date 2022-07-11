@@ -110,7 +110,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
         split_data: Callable[[pd.DataFrame], Tuple[List[int], List[int],
                                                    List[int]]],
         datasets_folder: Optional[str] = os.getenv('DATASETS_FOLDER', None),
-        label_from_sample: Callable[[dict], int] = lambda sample: sample,
+        get_label: Callable[[dict], torch.tensor] = lambda sample: sample,
         batch_size: int = 6,
         shuffle: int = 1E6,
         ):
@@ -118,7 +118,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
         if datasets_folder is None:
             load_dotenv()
             datasets_folder = os.getenv('DATASETS_FOLDER', None)
-        self.label_from_sample = label_from_sample
+        self.get_label = get_label
         self.batch_size = batch_size
         self.shuffle = shuffle
         # Download data if not already downloaded
@@ -169,7 +169,6 @@ class WheelTestBedDataset(pl.LightningDataModule):
         return self.data.iloc[self.test_indices]
 
     def get_features(self, features: np.ndarray):
-        # TODO normalize if required
         return torch.from_numpy(features)
 
     def get_dataloader(self, indices):
@@ -181,7 +180,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
             subset_samples(indices),  # Filters the samples
             wds.decode(wds.handle_extension('.npy', _decode_npy)),
             wds.to_tuple('npy', 'json'),
-            wds.map_tuple(self.get_features, self.label_from_sample),
+            wds.map_tuple(self.get_features, self.get_label),
             wds.batched(self.batch_size, partial=False),
             wds.shuffle(self.shuffle),
             )
