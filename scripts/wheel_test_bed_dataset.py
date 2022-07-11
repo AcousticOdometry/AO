@@ -2,16 +2,20 @@ import ao
 
 from gdrive import GDrive
 
+import io
 import os
 import torch
-import shutil
+import random
 import numpy as np
 import pandas as pd
+import webdataset as wds
+import pytorch_lightning as pl
 
+from tqdm import tqdm
 from pathlib import Path
 from functools import partial
 from dotenv import load_dotenv
-from typing import Optional, Callable, Union, Dict, List
+from typing import Optional, Callable, Tuple, List
 
 CACHE_FOLDER = Path(__file__).parent.parent / 'datasets'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -29,20 +33,13 @@ def _download_dataset_from_gdrive(
     to_download = []
     for f in gdrive.list_folder(folder_id):
         if ((
-            f['title'] == 'data.zip' and not (dataset_path / 'data').exists()
-            )
-            or ((f['title'] == 'dataset.yaml' or f['title'].endswith('.csv'))
-                and not (dataset_path / f['title']).exists())):
+            f['title'] == 'dataset.yaml' or f['title'].endswith('.csv')
+            or f['title'].endswith('.tar')
+            ) and not (dataset_path / f['title']).exists()):
             to_download.append(f)
-    for shard in to_download:
-        gdrive.download_file(shard, dataset_path / shard['title'])
-    if (dataset_path / 'data.zip').exists():
-        if (dataset_path / 'data').exists():
-            raise RuntimeError(
-                f"Found compressed and uncompressed data in {dataset_path}"
-                )
-        shutil.unpack_archive(dataset_path / 'data.zip', dataset_path / 'data')
-        (dataset_path / 'data.zip').unlink()
+    if to_download:
+        for f in tqdm(to_download, desc='Files', unit='file'):
+            gdrive.download_file(f, dataset_path / f['title'])
     return dataset_path
 
 
@@ -86,36 +83,61 @@ def _get_dataset_path(dataset: str, datasets_folder: str) -> Path:
         )
 
 
-class WheelTestBedDataset(torch.utils.data.Dataset):
+def _subset_samples(data, indices):
+    yielded = 0
+    for sample_n, sample in enumerate(data):
+        # Assumes indices are sorted
+        try:
+            if indices[yielded] == sample_n:
+                yielded += 1
+                yield sample
+        except IndexError:  # There is data but indices are finished
+            break
+
+
+subset_samples = wds.filters.pipelinefilter(_subset_samples)
+
+
+class WheelTestBedDataset(pl.LightningDataModule):
 
     def __init__(
         self,
         dataset: str,
+        split_data: Callable[[pd.DataFrame], Tuple[List[int], List[int],
+                                                   List[int]]],
         datasets_folder: Optional[str] = os.getenv('DATASETS_FOLDER', None),
-        sample_filter: Callable[[dict], bool] = lambda sample: True,
-        label_from_sample: Callable[[pd.Series], int] = lambda sample: sample,
+        label_from_sample: Callable[[dict], int] = lambda sample: sample,
+        batch_size: int = 6,
+        shuffle: int = 1E6,
         ):
+        super().__init__()
         if datasets_folder is None:
             load_dotenv()
             datasets_folder = os.getenv('DATASETS_FOLDER', None)
-        dataset_path = _get_dataset_path(dataset, datasets_folder)
+        self.label_from_sample = label_from_sample
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        # Download data if not already downloaded
+        self.dataset_path = _get_dataset_path(dataset, datasets_folder)
         # Load configuration
-        self.config = ao.io.yaml_load(dataset_path / 'dataset.yaml')
-        # Load and filter data list
+        self.config = ao.io.yaml_load(self.dataset_path / 'dataset.yaml')
+        self.config['name'] = self.dataset_path.name
+        # Prepare data
+        self.shards = [
+            f"file:{self.dataset_path / s_name}"
+            for s_name in self.config['shards'].keys()
+            ]
         self.data = pd.concat(
             [
                 pd.read_csv(f).assign(**ao.dataset.parse_filename(f.stem))
-                for f in dataset_path.glob('*.csv')
+                for f in self.dataset_path.glob('*.csv')
                 ],
             ignore_index=True,
             )
-        self.data = self.data[self.data.apply(sample_filter, axis=1)]
-        if self.data.empty:
-            raise RuntimeError('No data found that matched the filter')
-        self.data.reset_index(inplace=True, drop=True)
-        # Locate the features folder
-        self.features_folder = dataset_path / 'data'
-        self.label_from_sample = label_from_sample
+        self.train_indices, self.val_indices, self.test_indices = split_data(
+            self.data
+            )
+
 
     @property
     def input_dim(self):
@@ -131,106 +153,94 @@ class WheelTestBedDataset(torch.utils.data.Dataset):
             self.config['segment_frames'] * self.config['frame_duration']
             ) / 1000
 
-    def __len__(self):
-        return len(self.data.index)
+    @property
+    def train_data(self):
+        return self.data.iloc[self.train_indices]
 
-    def __getitem__(self, index):
-        sample = self.data.iloc[index]
-        features = np.load(
-            self.features_folder / self.get_sample_filename(sample)
+    @property
+    def val_data(self):
+        return self.data.iloc[self.val_indices]
+
+    @property
+    def test_data(self):
+        return self.data.iloc[self.test_indices]
+
+    def get_features(self, features: np.ndarray):
+        # TODO normalize if required
+        return torch.from_numpy(features)
+
+    def get_dataloader(self, indices):
+        if not indices:
+            return None
+        return wds.DataPipeline(
+            wds.SimpleShardList(self.shards),
+            wds.tarfile_to_samples(),
+            subset_samples(indices),  # Filters the samples
+            wds.decode(
+                wds.handle_extension('.npy', lambda x: np.load(io.BytesIO(x)))
+                ),
+            wds.to_tuple('npy', 'json'),
+            wds.map_tuple(self.get_features, self.label_from_sample),
+            wds.batched(self.batch_size, partial=False),
+            wds.shuffle(self.shuffle),
             )
-        return torch.from_numpy(features), self.label_from_sample(sample)
 
-    @staticmethod
-    def get_sample_filename(sample: Union[dict, pd.Series]) -> str:
-        return (
-            f"transform_{sample['transform']};device_{sample['device']};"
-            f"recording_{sample['recording']};segment_{sample['segment']}.npy"
+    def train_dataloader(self):
+        return self.get_dataloader(self.train_indices).with_length(
+            int(len(self.train_indices) / self.batch_size)
             )
 
-
-def _filter_by_transform_and_device(
-    sample: pd.Series,
-    use_transforms: List[str] = ['None'],
-    use_devices: List[str] = ['rode-videomic-ntg-top', 'rode-smartlav-top'],
-    ):
-    return (
-        sample['transform'] in use_transforms
-        or sample['device'] in use_devices
-        )
-
-
-TRAIN_SPLITS = {
-    'base': (
-        partial(
-            _filter_by_transform_and_device,
-            use_transforms=['None'],
-            use_devices=[
-                'rode-videomic-ntg-back', 'rode-videomic-ntg-front',
-                'rode-smartlav-wheel', 'laptop-built-in-microphone'
-                ],
-            ),
-        partial(
-            _filter_by_transform_and_device,
-            use_transforms=['None'],
-            use_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
-            ),
-        )
-    }
-
-
-# TODO pytorch DataModule
-def get_dataloaders(
-    dataset: str,
-    label_from_sample: Callable[[pd.Series], int] = lambda sample: sample,
-    train_split: float = 0.8,
-    batch_size: int = 15,
-    datasets_folder: Optional[str] = os.getenv('DATASETS_FOLDER', None),
-    ) -> Dict[str, torch.utils.data.DataLoader]:
-    train_filter, test_filter = TRAIN_SPLITS['base']
-    datasets = {
-        'test':
-            WheelTestBedDataset(
-                dataset,
-                sample_filter=test_filter,
-                datasets_folder=datasets_folder,
-                label_from_sample=label_from_sample
-                )
-        }
-    train_dataset = WheelTestBedDataset(
-        dataset,
-        sample_filter=train_filter,
-        datasets_folder=datasets_folder,
-        label_from_sample=label_from_sample
-        )
-    train_size = int(train_split * len(train_dataset))
-    test_size = len(train_dataset) - train_size
-    datasets['train'], datasets['val'] = torch.utils.data.random_split(
-        train_dataset, [train_size, test_size]
-        )
-    loaders = {}
-    for name, dataset in datasets.items():
-        loaders[name] = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=True if 'train' in name else False,
+    def val_dataloader(self):
+        return self.get_dataloader(self.val_indices).with_length(
+            int(len(self.val_indices) / self.batch_size)
             )
-        print(
-            f'{name} set: {len(dataset)} samples, {len(loaders[name])} batches'
+
+    def test_dataloader(self):
+        return self.get_dataloader(self.test_indices).with_length(
+            int(len(self.test_indices) / self.batch_size)
             )
-    return loaders
 
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
-    parser = ArgumentParser("Test accessibility to a WebDataset")
+    parser = ArgumentParser("Test accessibility to a WheelTestBedDataset")
     parser.add_argument('dataset', type=str)
     args = parser.parse_args()
     print(f"Using `{args.dataset}`...")
-    dataset = WheelTestBedDataset(args.dataset)
+
+    def split_data(data):
+        train_indices, val_indices, test_indices = [], [], []
+        for index, sample in data.iterrows():
+            if sample['transform'] != 'None':
+                continue
+            if sample['device'] in [
+                'rode-videomic-ntg-top', 'rode-smartlav-top'
+                ]:
+                test_indices.append(index)
+            elif random.uniform(0, 1) < 0.8:
+                train_indices.append(index)
+            else:
+                val_indices.append(index)
+        return (train_indices, val_indices, test_indices)
+
+    dataset = WheelTestBedDataset(args.dataset, split_data, shuffle=0)
     print('config = ', ao.io.yaml_dump(dataset.config))
-    print("First sample: ")
-    features, result = next(iter(dataset))
-    print(f"{features.shape = }")
-    print(f"{result = }")
+
+    train_dataset = dataset.train_dataloader()
+    train_samples = 0
+    print('Starting test')
+    for batch_features, batch_samples in train_dataset:
+        for sample in batch_samples:
+            if not np.isclose(
+                dataset.train_data.iloc[train_samples]['Vx'], sample['Vx']
+                ):
+                print(train_samples)
+                print(dataset.train_data.iloc[train_samples])
+                print(sample['Vx'])
+                raise RuntimeError
+            train_samples += 1
+    if train_samples != len(dataset.train_indices):
+        raise AssertionError(
+            f"{train_samples = } != {len(dataset.train_indices) = }"
+            )

@@ -7,17 +7,20 @@ tool. Provide the `--help` flag to see the available options.
 This file can also be imported as a module in order to use the `train_model`
 function.
 """
-from cProfile import label
 import ao
 
 from gdrive import GDrive
-from wheel_test_bed_dataset import get_dataloaders
+from wheel_test_bed_dataset import WheelTestBedDataset
 
 import os
 import torch
+import random
 import pytorch_lightning as pl
 
+from tqdm import tqdm
+from typing import List
 from pathlib import Path
+from functools import partial
 from dotenv import load_dotenv
 from pytorch_lightning.callbacks import EarlyStopping
 
@@ -49,47 +52,71 @@ def model_exists(name: str, models_folder: str) -> bool:
 def save_model(
     name: str,
     model: pl.LightningModule,
-    dataset_config: dict,
+    dataset: pl.LightningDataModule,
     models_folder: str,
-    logging_dir: Path,
     ):
     folder_id = GDrive.get_folder_id(models_folder)
+    # Save everything locally first
+    if folder_id:
+        model_folder = CACHE_FOLDER / name
+    else:
+        model_folder = Path(models_folder) / name
+    torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
+    ao.io.yaml_dump(model.hparams, model_folder / 'hparams.yaml')
+    ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
+    for name in ['train', 'val', 'test']:
+        getattr(dataset, f"{name}_data").to_csv(
+            model_folder / f"{name}_data.csv", index_label='index'
+            )
+    # Upload to Google Drive if needed
     if folder_id:
         # Create model folder
         gdrive = GDrive()
-        model_folder = gdrive.create_folder(name, folder_id)
-        model_folder.Upload()
-        # Save model
-        model_file = gdrive.create_file('model.pt', model_folder['id'])
-        torch.jit.save(model.to_torchscript(), logging_dir / 'model.pt')
-        model_file.SetContentFile(str(logging_dir / 'model.pt'))
-        model_file.Upload()
-        # Save dataset dataset_config
-        config_file = gdrive.create_file('dataset.yaml', model_folder['id'])
-        config_file.SetContentString(ao.io.yaml_dump(dataset_config))
-        config_file.Upload()
-        # Save hparams
-        hparams_file = gdrive.create_file('hparams.yaml', model_folder['id'])
-        # TODO hparams yaml is a bit weird
-        hparams_file.SetContentString(ao.io.yaml_dump(model.hparams))
-        hparams_file.Upload()
-    else:
-        # Models folder is a local folder
-        model_folder = Path(models_folder) / name
-        model_folder.mkdir(exist_ok=True)
-        # Save model
-        torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
-        # Save dataset dataset_config
-        ao.io.yaml_dump(dataset_config, model_folder / 'dataset.yaml')
-        # Save hparams
-        ao.io.yaml_dump(model.hparams, model_folder / 'hparams.yaml')
+        upload_to = gdrive.create_folder(name, folder_id)
+        upload_to.Upload()
+        # Upload all files
+        for f in tqdm([f for f in model_folder.iterdir() if f.is_file()],
+                      desc='Upload model',
+                      unit='file'):
+            gdrive_file = gdrive.create_file(f.name, upload_to['id'])
+            gdrive_file.SetContentFile(str(f))
+            gdrive_file.Upload()
+
+
+def _split_by_transform_and_devices(
+    data,
+    use_transforms: List[str] = ['None'],
+    train_split: float = 0.8,
+    test_devices: List[str] = ['rode-videomic-ntg-top', 'rode-smartlav-top'],
+    ):
+    train_indices, val_indices, test_indices = [], [], []
+    for index, sample in data.iterrows():
+        if sample['transform'] not in use_transforms:
+            continue
+        if sample['device'] in test_devices:
+            test_indices.append(index)
+        elif random.uniform(0, 1) < train_split:
+            train_indices.append(index)
+        else:
+            val_indices.append(index)
+    return (train_indices, val_indices, test_indices)
+
+
+SPLIT_STRATEGIES = {
+    'base':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None'],
+            train_split=0.8,
+            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            ),
+    }
 
 
 def train_model(
     name: str,
     dataset: str,
-    validation_split: float,
-    shard_selection_strategy: str,
+    split_strategy: str,
     models_folder: str,
     batch_size: int = 32,
     gpus: int = -1,
@@ -100,13 +127,13 @@ def train_model(
     if model_exists(name, models_folder):
         raise ValueError(f"Model {name} already exists in {models_folder}")
     # Get dataset
-    loaders = get_dataloaders(
+    dataset = WheelTestBedDataset(
         dataset,
-        label_from_sample=lambda sample: round(sample['Vx'] * 100),
-        train_split=1 - validation_split,
+        split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
+        label_from_sample=lambda result: torch.
+        tensor(round(result['Vx'] * 100)),
         )
-    dataset = loaders['test'].dataset
     # Initialize model
     # TODO use dataset for output_dim
     model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=7)
@@ -115,25 +142,21 @@ def train_model(
     logging_dir.mkdir(exist_ok=True)
     logger = pl.loggers.TensorBoardLogger(save_dir=logging_dir)
     trainer = pl.Trainer(
-        # precision=16
         accelerator='auto',
         min_epochs=min_epochs,
         max_epochs=max_epochs,
         logger=logger,
         default_root_dir=logging_dir,
         gpus=gpus,
-        # callbacks=[
-        #     EarlyStopping(monitor='val_acc', mode='max', min_delta=-0.001)
-        #     ]
+        callbacks=[EarlyStopping(monitor='val_acc', mode='max')]
         # auto_lr_find=True,
         # auto_scale_batch_size='binsearch',
         )
     # trainer.tune(model, dataset)
-    trainer.fit(model, loaders['train'], loaders['val'])
-    trainer.test(model, loaders['test'])
+    trainer.fit(model, dataset)
+    trainer.test(model, dataset)
     # Save model
-    print('Saving model...')
-    return save_model(name, model, dataset.config, models_folder, logging_dir)
+    return save_model(name, model, dataset, models_folder)
 
 
 if __name__ == '__main__':
@@ -184,7 +207,7 @@ if __name__ == '__main__':
         type=int,
         nargs='+',
         )
-    # TODO validation_split
+    # TODO split_strategy
     args = parser.parse_args()
 
     # Parse output argument
@@ -197,8 +220,7 @@ if __name__ == '__main__':
     train_model(
         name=args.name,
         dataset=args.dataset,
-        validation_split=0.2,
-        shard_selection_strategy='base',
+        split_strategy='base',
         models_folder=args.output,
         batch_size=args.batch_size,
         gpus=args.gpus,
