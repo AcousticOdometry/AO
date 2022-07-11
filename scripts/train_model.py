@@ -15,17 +15,20 @@ from wheel_test_bed_dataset import WheelTestBedDataset
 import os
 import torch
 import random
+import numpy as np
 import pytorch_lightning as pl
 
 from tqdm import tqdm
-from typing import List
 from pathlib import Path
 from functools import partial
 from dotenv import load_dotenv
+from typing import List, Optional
 from pytorch_lightning.callbacks import EarlyStopping
 
 CACHE_FOLDER = Path(__file__).parent.parent / 'models'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
+
+# Utils
 
 
 def model_exists(name: str, models_folder: str) -> bool:
@@ -52,6 +55,7 @@ def model_exists(name: str, models_folder: str) -> bool:
 def save_model(
     name: str,
     model: pl.LightningModule,
+    config: dict,
     dataset: pl.LightningDataModule,
     models_folder: str,
     ):
@@ -62,7 +66,8 @@ def save_model(
     else:
         model_folder = Path(models_folder) / name
     torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
-    ao.io.yaml_dump(model.hparams, model_folder / 'hparams.yaml')
+    ao.io.yaml_dump(dict(model.hparams), model_folder / 'hparams.yaml')
+    ao.io.yaml_dump(dict(config), model_folder / 'model.yaml')
     ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
     for split in ['train', 'val', 'test']:
         getattr(dataset, f"{split}_data").to_csv(
@@ -81,6 +86,9 @@ def save_model(
             gdrive_file = gdrive.create_file(f.name, upload_to['id'])
             gdrive_file.SetContentFile(str(f))
             gdrive_file.Upload()
+
+
+# Splitting
 
 
 def _split_by_transform_and_devices(
@@ -141,34 +149,68 @@ SPLIT_STRATEGIES = {
             ),
     }
 
-def _get_label(result):
-    return torch.tensor(round(result['Vx'] * 100))
+# Labeling
+
+
+def _bucketize_sample(sample: dict, boundaries: np.ndarray, var: str):
+    return torch.bucketize(
+        sample[var],
+        boundaries=boundaries,
+        )
+
 
 def train_model(
-        name: str,
-        dataset: str,
-        split_strategy: str,
-        models_folder: str,
-        batch_size: int = 32,
-        gpus: int = -1,
-        min_epochs: int = 10,
-        max_epochs: int = 20,
-        **kwargs
+    name: str,
+    dataset: str,
+    split_strategy: str,
+    models_folder: str,
+    batch_size: int = 32,
+    gpus: int = -1,
+    min_epochs: int = 5,
+    max_epochs: int = 20,
+    architecture: str = 'CNN',
+    boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.065, 7),
+    **model_kwargs,
     ):
     # Check if model already exists
     if model_exists(name, models_folder):
         raise ValueError(f"Model {name} already exists in {models_folder}")
+    # Initialize model
+    config = {
+        'task': None,
+        'split_strategy': split_strategy,
+        'architecture': architecture
+        }
+    if boundaries is not None:
+        config['task'] = 'classification'
+        config['boundaries'] = boundaries.tolist()
+        output_dim = len(boundaries) + 1
+        get_label = partial(
+            _bucketize_sample,
+            boundaries=torch.from_numpy(boundaries),
+            var='Vx',
+            )
+    else:
+        raise ValueError(
+            'Could not determine whether to use classification or regression'
+            )
     # Get dataset
     dataset = WheelTestBedDataset(
         dataset,
         split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
-        get_label=_get_label,
+        get_label=get_label,
         )
-    dataset.config['split_strategy'] = split_strategy
+    config['split_strategy'] = split_strategy
     # Initialize model
-    # TODO use dataset for output_dim
-    model = ao.models.CNN(input_dim=dataset.input_dim, output_dim=9, **kwargs)
+    if architecture == 'CNN':
+        model_class = ao.models.CNN
+    else:
+        raise ValueError(f"Unknown architecture {architecture}")
+    model = model_class(
+        input_dim=dataset.input_dim, output_dim=output_dim, **model_kwargs
+        )
+    config['class'] = model_class.__name__
     # Configure trainer and train
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
@@ -188,7 +230,7 @@ def train_model(
     trainer.fit(model, dataset)
     trainer.test(model, dataset)
     # Save model
-    return save_model(name, model, dataset, models_folder)
+    return save_model(name, model, config, dataset, models_folder)
 
 
 if __name__ == '__main__':
@@ -246,7 +288,6 @@ if __name__ == '__main__':
         type=int,
         nargs='+',
         )
-    # TODO split_strategy
     args = parser.parse_args()
 
     # Parse output argument
