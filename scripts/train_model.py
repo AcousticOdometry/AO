@@ -14,6 +14,7 @@ from wheel_test_bed_dataset import WheelTestBedDataset
 
 import os
 import torch
+import shutil
 import random
 import numpy as np
 import pytorch_lightning as pl
@@ -53,7 +54,7 @@ def model_exists(name: str, models_folder: str) -> bool:
 
 
 def save_model(
-    name: str,
+    logger: pl.loggers.TensorBoardLogger,
     model: pl.LightningModule,
     config: dict,
     dataset: pl.LightningDataModule,
@@ -62,11 +63,14 @@ def save_model(
     folder_id = GDrive.get_folder_id(models_folder)
     # Save everything locally first
     if folder_id:
-        model_folder = CACHE_FOLDER / name
+        model_folder = Path(logger.log_dir)
     else:
-        model_folder = Path(models_folder) / name
+        model_folder = Path(models_folder) / logger.name
+        model_folder.mkdir(parents=True, exist_ok=True)
+        # Copy from log_dir to models_folder
+        for f in Path(logger.log_dir).iterdir():
+            shutil.copy(str(f), str(model_folder / f.name))
     torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
-    ao.io.yaml_dump(dict(model.hparams), model_folder / 'hparams.yaml')
     ao.io.yaml_dump(dict(config), model_folder / 'model.yaml')
     ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
     for split in ['train', 'val', 'test']:
@@ -77,7 +81,7 @@ def save_model(
     if folder_id:
         # Create model folder
         gdrive = GDrive()
-        upload_to = gdrive.create_folder(name, folder_id)
+        upload_to = gdrive.create_folder(logger.name, folder_id)
         upload_to.Upload()
         # Upload all files
         for f in tqdm([f for f in model_folder.iterdir() if f.is_file()],
@@ -174,7 +178,7 @@ def train_model(
     architecture: str = 'CNN',
     boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
     **model_kwargs,
-    ):
+    ) -> pl.Trainer:
     # Check if model already exists
     if model_exists(name, models_folder):
         raise ValueError(f"Model {name} already exists in {models_folder}")
@@ -226,28 +230,31 @@ def train_model(
         )
     config['class'] = model_class.__name__
     # Configure trainer and train
-    logging_dir = CACHE_FOLDER / name
-    logging_dir.mkdir(exist_ok=True)
-    logger = pl.loggers.TensorBoardLogger(save_dir=logging_dir)
+    logger = pl.loggers.TensorBoardLogger(save_dir=CACHE_FOLDER, name=name)
     checkpoint_callback = ModelCheckpoint(
-        dirpath=logging_dir, save_top_k=2, monitor="val_acc"
+        dirpath=logger.log_dir, save_top_k=2, monitor="val_acc"
         )
     trainer = pl.Trainer(
         accelerator='auto',
         min_epochs=min_epochs,
         max_epochs=max_epochs,
         logger=logger,
-        default_root_dir=logging_dir,
         gpus=gpus,
-        callbacks=[EarlyStopping(monitor='val_acc', mode='max', patience=5)],
+        callbacks=[
+            EarlyStopping(monitor='val_acc', mode='max', patience=5),
+            checkpoint_callback
+            ],
         )
     trainer.fit(model, dataset)
-    model = model_class.load_from_checkpoint(
-        checkpoint_path=checkpoint_callback.best_model_path
-        )
-    trainer.test(model, dataset)
+    if checkpoint_callback.best_model_path:
+        model = model_class.load_from_checkpoint(
+            checkpoint_path=checkpoint_callback.best_model_path
+            )
+    if not trainer.interrupted:
+        trainer.test(model, dataset)
     # Save model
-    return save_model(name, model, config, dataset, models_folder)
+    save_model(logger, model, config, dataset, models_folder)
+    return trainer
 
 
 if __name__ == '__main__':

@@ -21,19 +21,28 @@ if __name__ == '__main__':
 
     parser = ArgumentParser("Train multiple Acoustic Odometry models")
     parser.add_argument(
+        '--dataset',
+        '-d',
+        default=None,
+        type=str,
+        )
+    parser.add_argument(
         '--batch-size',
         '-b',
         default=32,
         type=int,
         )
     parser.add_argument(
-        '--gpus',
+        '--gpu',
         '-g',
-        default=-1,
+        default=0,
         type=int,
-        nargs='+',
         )
     args = parser.parse_args()
+    if args.gpu < 0:
+        raise ValueError(
+            "GPU index must be non-negative, only one gpu is supported"
+            )
 
     load_dotenv()
     models_folder = os.environ['MODELS_FOLDER']
@@ -44,7 +53,7 @@ if __name__ == '__main__':
             'dataset': 'base',
             'split_strategy': 'base',
             'architecture': 'CNN',
-            'boundaries':  np.linspace(0.005, 0.065, 7),
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'conv1_filters': 64,
             'conv1_size': 5,
             'conv2_filters': 128,
@@ -55,36 +64,100 @@ if __name__ == '__main__':
             'dataset': 'base',
             'split_strategy': 'base',
             'architecture': 'CNN',
-            'boundaries':  np.linspace(0.005, 0.065, 7),
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'conv1_filters': 32,
             'conv1_size': 5,
             'conv2_filters': 64,
             'conv2_size': 5,
             'hidden_size': 256,
             },
-        'segment-100': {
+        # 'validate-other-devices': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'architecture': 'CNN',
+        #     'boundaries': np.linspace(0.005, 0.065, 7),
+        #     'conv1_filters': 64,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 128,
+        #     'conv2_size': 5,
+        #     'hidden_size': 512,
+        #     },
+        # 'all-devices': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'architecture': 'CNN',
+        #     'boundaries': np.linspace(0.005, 0.065, 7),
+        #     'conv1_filters': 64,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 128,
+        #     'conv2_size': 5,
+        #     'hidden_size': 512,
+        #     },
+        # 'all-transforms': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'architecture': 'CNN',
+        #     'boundaries': np.linspace(0.005, 0.065, 7),
+        #     'conv1_filters': 64,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 128,
+        #     'conv2_size': 5,
+        #     'hidden_size': 512,
+        #     },
+        'v2-segment-100': {
             'dataset': 'segment-100',
             'split_strategy': 'base',
             'architecture': 'CNN',
-            'boundaries':  np.linspace(0.005, 0.065, 7),
+            'boundaries': np.linspace(0.005, 0.065, 7),
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
             },
-        'duration-5': {
-            'dataset': 'duration-5',
+        'segment-140': {
+            'dataset': 'segment-140',
             'split_strategy': 'base',
             'architecture': 'CNN',
-            'boundaries':  np.linspace(0.005, 0.065, 7),
+            'boundaries': np.linspace(0.005, 0.065, 7),
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
+            },
+        'double-channel': {
+            'dataset': 'double-channel',
+            'split_strategy': 'base',
+            'architecture': 'CNN',
+            'boundaries': np.linspace(0.005, 0.065, 7),
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
             },
         }
     for name, kwargs in models_to_train.items():
+        if args.dataset != kwargs['dataset']:
+            print(f"Skipping model {name} for dataset {kwargs['dataset']}")
+            continue
         try:
-            train_model(
+            print(f"- Training model {name}")
+            trainer = train_model(
                 name=name,
                 models_folder=models_folder,
                 batch_size=args.batch_size,
-                gpus=args.gpus,
+                gpus=args.gpu,
                 min_epochs=10,
                 max_epochs=100,
                 **kwargs
                 )
+            print(trainer.interrupted)
+            if trainer.interrupted:
+                warn(
+                    f"Model {name} was interrupted. Skipping remaining models"
+                    )
+                break
         except ValueError as e:
             warn(f"Skip model {name}: {e}")
