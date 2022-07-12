@@ -21,10 +21,11 @@ if __name__ == '__main__':
 
     parser = ArgumentParser("Train multiple Acoustic Odometry models")
     parser.add_argument(
-        '--dataset',
+        '--datasets',
         '-d',
         default=None,
         type=str,
+        nargs='+',
         )
     parser.add_argument(
         '--batch-size',
@@ -139,16 +140,16 @@ if __name__ == '__main__':
             },
         }
     for name, kwargs in models_to_train.items():
-        if args.dataset != kwargs['dataset']:
+        if args.datasets and kwargs['dataset'] not in args.datasets:
             print(f"Skipping model {name} for dataset {kwargs['dataset']}")
             continue
         try:
-            print(f"- Training model {name}")
+            print(f"- Training model {name} with GPU {args.gpu}")
             trainer = train_model(
                 name=name,
                 models_folder=models_folder,
                 batch_size=args.batch_size,
-                gpus=args.gpu,
+                gpus=[args.gpu],
                 min_epochs=10,
                 max_epochs=100,
                 **kwargs
