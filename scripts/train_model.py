@@ -22,8 +22,8 @@ from tqdm import tqdm
 from pathlib import Path
 from functools import partial
 from dotenv import load_dotenv
-from typing import List, Optional
-from pytorch_lightning.callbacks import EarlyStopping
+from typing import List, Optional, Union
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 CACHE_FOLDER = Path(__file__).parent.parent / 'models'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -168,9 +168,9 @@ def train_model(
     split_strategy: str,
     models_folder: str,
     batch_size: int = 32,
-    gpus: int = -1,
+    gpus: Union[int, List[int]] = -1,
     min_epochs: int = 10,
-    max_epochs: int = 30,
+    max_epochs: int = 50,
     architecture: str = 'CNN',
     boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
     **model_kwargs,
@@ -204,6 +204,7 @@ def train_model(
         batch_size=batch_size,
         get_label=get_label,
         )
+    print(f"Using dataset: {dataset.config['name']}")
     for split in ['train', 'val', 'test']:
         n_samples = len(getattr(dataset, f'{split}_data').index)
         print(
@@ -228,6 +229,9 @@ def train_model(
     logging_dir = CACHE_FOLDER / name
     logging_dir.mkdir(exist_ok=True)
     logger = pl.loggers.TensorBoardLogger(save_dir=logging_dir)
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=logging_dir, save_top_k=2, monitor="val_acc"
+        )
     trainer = pl.Trainer(
         accelerator='auto',
         min_epochs=min_epochs,
@@ -238,6 +242,9 @@ def train_model(
         callbacks=[EarlyStopping(monitor='val_acc', mode='max', patience=5)],
         )
     trainer.fit(model, dataset)
+    model = model_class.load_from_checkpoint(
+        checkpoint_path=checkpoint_callback.best_model_path
+        )
     trainer.test(model, dataset)
     # Save model
     return save_model(name, model, config, dataset, models_folder)
@@ -310,7 +317,7 @@ if __name__ == '__main__':
     train_model(
         name=args.name,
         dataset=args.dataset,
-        split_strategy='base',
+        split_strategy=args.split_strategy,
         models_folder=args.output,
         batch_size=args.batch_size,
         gpus=args.gpus,
