@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from typing import List, Optional, Union
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
+
 CACHE_FOLDER = Path(__file__).parent.parent / 'models'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
 
@@ -94,6 +95,7 @@ def save_model(
 
 # Splitting
 
+SPLIT_RNG = random.Random()
 
 def _split_by_transform_and_devices(
     data: 'pd.DataFrame',
@@ -112,7 +114,7 @@ def _split_by_transform_and_devices(
             test_indices.append(index)
         elif sample['device'] in val_devices:
             val_indices.append(index)
-        elif random.uniform(0, 1) <= train_split:
+        elif SPLIT_RNG.uniform(0, 1) <= train_split:
             train_indices.append(index)
         else:
             val_indices.append(index)
@@ -191,8 +193,11 @@ def train_model(
         }
     if seed:
         pl.seed_everything(seed, workers=True)
+        dataset_rng = random.Random(seed)
+        SPLIT_RNG.seed(seed)
         config['seed'] = seed
     else:
+        dataset_rng = None
         config['seed'] = seed
     if boundaries is not None:
         config['task'] = 'classification'
@@ -213,6 +218,7 @@ def train_model(
         split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
         get_label=get_label,
+        rng=dataset_rng,
         )
     print(f"Using dataset: {dataset.config['name']}")
     for split in ['train', 'val', 'test']:

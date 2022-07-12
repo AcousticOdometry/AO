@@ -5,7 +5,6 @@ from gdrive import GDrive
 import io
 import os
 import torch
-import random
 import numpy as np
 import pandas as pd
 import webdataset as wds
@@ -13,7 +12,6 @@ import pytorch_lightning as pl
 
 from tqdm import tqdm
 from pathlib import Path
-from functools import partial
 from dotenv import load_dotenv
 from typing import Optional, Callable, Tuple, List
 
@@ -113,6 +111,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
         get_label: Callable[[dict], torch.tensor] = lambda sample: sample,
         batch_size: int = 6,
         shuffle: int = 1E6,
+        rng: Optional['random.Random'] = None,
         ):
         super().__init__()
         if datasets_folder is None:
@@ -121,6 +120,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
         self.get_label = get_label
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.rng = rng
         # Download data if not already downloaded
         self.dataset_path = _get_dataset_path(dataset, datasets_folder)
         # Load configuration
@@ -182,7 +182,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
             wds.to_tuple('npy', 'json'),
             wds.map_tuple(self.get_features, self.get_label),
             wds.batched(self.batch_size, partial=False),
-            wds.shuffle(self.shuffle),
+            wds.shuffle(self.shuffle, rng=self.rng),
             )
 
     def train_dataloader(self):
@@ -202,6 +202,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
 
 
 if __name__ == "__main__":
+    import random
     from argparse import ArgumentParser
 
     parser = ArgumentParser("Test accessibility to a WheelTestBedDataset")
