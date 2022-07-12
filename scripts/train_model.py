@@ -173,7 +173,7 @@ def train_model(
     models_folder: str,
     batch_size: int = 32,
     gpus: Union[int, List[int]] = -1,
-    deterministic: bool = True,
+    seed: Optional[int] = 42,
     min_epochs: int = 10,
     max_epochs: int = 50,
     architecture: str = 'CNN',
@@ -189,6 +189,11 @@ def train_model(
         'split_strategy': split_strategy,
         'architecture': architecture
         }
+    if seed:
+        pl.seed_everything(seed, workers=True)
+        config['seed'] = seed
+    else:
+        config['seed'] = seed
     if boundaries is not None:
         config['task'] = 'classification'
         config['boundaries'] = boundaries.tolist()
@@ -241,7 +246,7 @@ def train_model(
         max_epochs=max_epochs,
         logger=logger,
         gpus=gpus,
-        deterministic=deterministic,
+        deterministic=True if seed else False,
         callbacks=[
             EarlyStopping(monitor='val_acc', mode='max', patience=10),
             checkpoint_callback

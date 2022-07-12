@@ -116,7 +116,18 @@ if __name__ == '__main__':
             'conv2_size': 5,
             'hidden_size': 512,
             },
-        'v2-segment-100': {
+        'duration-5': {
+            'dataset': 'duration-5',
+            'split_strategy': 'base',
+            'architecture': 'CNN',
+            'boundaries': np.linspace(0.005, 0.065, 7),
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
+            },
+        'segment-100': {
             'dataset': 'segment-100',
             'split_strategy': 'base',
             'architecture': 'CNN',
@@ -163,6 +174,7 @@ if __name__ == '__main__':
                 gpus=[args.gpu],
                 min_epochs=10,
                 max_epochs=100,
+                deterministic=True,
                 **kwargs
                 )
             if trainer.interrupted:
