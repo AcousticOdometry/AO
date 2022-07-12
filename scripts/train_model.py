@@ -162,10 +162,6 @@ def _bucketize_sample(sample: dict, boundaries: np.ndarray, var: str):
         )
 
 
-def _get_label(result):
-    return torch.tensor(round(result['Vx'] * 100))
-
-
 def train_model(
     name: str,
     dataset: str,
@@ -173,8 +169,8 @@ def train_model(
     models_folder: str,
     batch_size: int = 32,
     gpus: int = -1,
-    min_epochs: int = 5,
-    max_epochs: int = 20,
+    min_epochs: int = 10,
+    max_epochs: int = 30,
     architecture: str = 'CNN',
     boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
     **model_kwargs,
@@ -218,12 +214,13 @@ def train_model(
     # Initialize model
     if architecture == 'CNN':
         model_class = ao.models.CNN
+        learning_rate = 0.0001
     else:
         raise ValueError(f"Unknown architecture {architecture}")
     model = model_class(
         input_dim=dataset.input_dim,
         output_dim=output_dim,
-        lr=0.0001,
+        lr=learning_rate,
         **model_kwargs
         )
     config['class'] = model_class.__name__
@@ -238,10 +235,8 @@ def train_model(
         logger=logger,
         default_root_dir=logging_dir,
         gpus=gpus,
-        callbacks=[EarlyStopping(monitor='val_acc', mode='max')],
-        # auto_lr_find=True,
+        callbacks=[EarlyStopping(monitor='val_acc', mode='max', patience=5)],
         )
-    # trainer.tune(model, dataset)
     trainer.fit(model, dataset)
     trainer.test(model, dataset)
     # Save model

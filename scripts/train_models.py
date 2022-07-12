@@ -40,14 +40,20 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
-        'base': {
+        'new-base': {
             'dataset': 'base',
             'split_strategy': 'base',
             'architecture': 'CNN',
             'boundaries':  np.linspace(0.005, 0.065, 7),
             },
-        'segment-100': {
+        'new-segment-100': {
             'dataset': 'segment-100',
+            'split_strategy': 'base',
+            'architecture': 'CNN',
+            'boundaries':  np.linspace(0.005, 0.065, 7),
+            },
+        'duration-5': {
+            'dataset': 'duration-5',
             'split_strategy': 'base',
             'architecture': 'CNN',
             'boundaries':  np.linspace(0.005, 0.065, 7),
@@ -60,6 +66,8 @@ if __name__ == '__main__':
                 models_folder=models_folder,
                 batch_size=args.batch_size,
                 gpus=args.gpus,
+                min_epochs=10,
+                max_epochs=30,
                 **kwargs
                 )
         except ValueError as e:
