@@ -47,7 +47,7 @@ def model_exists(name: str, models_folder: str) -> bool:
                         return True
                 # If no `model.pt` file is found trash the subfolder
                 folder.Trash()
-            return False
+        return False
     # Models folder is a local folder
     model_path = Path(models_folder) / name / 'model.pt'
     return model_path.exists()
@@ -241,7 +241,7 @@ def train_model(
         logger=logger,
         gpus=gpus,
         callbacks=[
-            EarlyStopping(monitor='val_acc', mode='max', patience=5),
+            EarlyStopping(monitor='val_acc', mode='max', patience=10),
             checkpoint_callback
             ],
         )
