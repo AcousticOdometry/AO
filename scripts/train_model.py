@@ -26,7 +26,6 @@ from dotenv import load_dotenv
 from typing import List, Optional, Union
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
-
 CACHE_FOLDER = Path(__file__).parent.parent / 'models'
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
 
@@ -97,6 +96,7 @@ def save_model(
 
 SPLIT_RNG = random.Random()
 
+
 def _split_by_transform_and_devices(
     data: 'pd.DataFrame',
     config: dict,
@@ -146,6 +146,14 @@ SPLIT_STRATEGIES = {
             use_transforms=['None'],
             train_split=0.8,
             test_devices=[],
+            val_devices=[],
+            ),
+    'with-noise':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None', 'add-random-snr-noise'],
+            train_split=0.8,
+            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
             val_devices=[],
             ),
     'all-transforms':

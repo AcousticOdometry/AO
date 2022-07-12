@@ -61,6 +61,17 @@ if __name__ == '__main__':
             'conv2_size': 5,
             'hidden_size': 512,
             },
+        # 'linear-bin-10': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'architecture': 'CNN',
+        #     'boundaries': np.linspace(0.005, 0.065, 7),
+        #     'conv1_filters': 64,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 128,
+        #     'conv2_size': 5,
+        #     'hidden_size': 512,
+        #     },
         'half-size': {
             'dataset': 'base',
             'split_strategy': 'base',
@@ -85,7 +96,7 @@ if __name__ == '__main__':
             },
         'validate-other-devices': {
             'dataset': 'base',
-            'split_strategy': 'base',
+            'split_strategy': 'validate-other-devices',
             'architecture': 'CNN',
             'boundaries': np.linspace(0.005, 0.065, 7),
             'conv1_filters': 64,
@@ -96,7 +107,7 @@ if __name__ == '__main__':
             },
         'all-devices': {
             'dataset': 'base',
-            'split_strategy': 'base',
+            'split_strategy': 'all-devices',
             'architecture': 'CNN',
             'boundaries': np.linspace(0.005, 0.065, 7),
             'conv1_filters': 64,
@@ -105,9 +116,9 @@ if __name__ == '__main__':
             'conv2_size': 5,
             'hidden_size': 512,
             },
-        'all-transforms': {
+        'with-noise': {
             'dataset': 'base',
-            'split_strategy': 'base',
+            'split_strategy': 'with-noise',
             'architecture': 'CNN',
             'boundaries': np.linspace(0.005, 0.065, 7),
             'conv1_filters': 64,
@@ -174,7 +185,7 @@ if __name__ == '__main__':
                 gpus=[args.gpu],
                 min_epochs=10,
                 max_epochs=100,
-                deterministic=True,
+                seed=42,
                 **kwargs
                 )
             if trainer.interrupted:
