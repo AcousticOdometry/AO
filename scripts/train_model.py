@@ -173,6 +173,7 @@ def train_model(
     models_folder: str,
     batch_size: int = 32,
     gpus: Union[int, List[int]] = -1,
+    deterministic: bool = True,
     min_epochs: int = 10,
     max_epochs: int = 50,
     architecture: str = 'CNN',
@@ -240,6 +241,7 @@ def train_model(
         max_epochs=max_epochs,
         logger=logger,
         gpus=gpus,
+        deterministic=deterministic,
         callbacks=[
             EarlyStopping(monitor='val_acc', mode='max', patience=10),
             checkpoint_callback
