@@ -110,7 +110,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
         datasets_folder: Optional[str] = os.getenv('DATASETS_FOLDER', None),
         get_label: Callable[[dict], torch.tensor] = lambda sample: sample,
         batch_size: int = 6,
-        shuffle: int = 1E6,
+        shuffle: int = 1E4,
         rng: Optional['random.Random'] = None,
         ):
         super().__init__()
@@ -181,24 +181,18 @@ class WheelTestBedDataset(pl.LightningDataModule):
             wds.decode(wds.handle_extension('.npy', _decode_npy)),
             wds.to_tuple('npy', 'json'),
             wds.map_tuple(self.get_features, self.get_label),
-            wds.batched(self.batch_size, partial=False),
             wds.shuffle(self.shuffle, rng=self.rng),
-            )
+            wds.batched(self.batch_size, partial=False),
+            ).with_length(int(len(indices) / self.batch_size))
 
     def train_dataloader(self):
-        return self.get_dataloader(self.train_indices).with_length(
-            int(len(self.train_indices) / self.batch_size)
-            )
+        return self.get_dataloader(self.train_indices)
 
     def val_dataloader(self):
-        return self.get_dataloader(self.val_indices).with_length(
-            int(len(self.val_indices) / self.batch_size)
-            )
+        return self.get_dataloader(self.val_indices)
 
     def test_dataloader(self):
-        return self.get_dataloader(self.test_indices).with_length(
-            int(len(self.test_indices) / self.batch_size)
-            )
+        return self.get_dataloader(self.test_indices)
 
 
 if __name__ == "__main__":
