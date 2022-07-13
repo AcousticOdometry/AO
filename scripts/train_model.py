@@ -181,13 +181,13 @@ def train_model(
     dataset: str,
     split_strategy: str,
     models_folder: str,
+    architecture: str = 'CNN',
+    boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
     batch_size: int = 32,
     gpus: Union[int, List[int]] = -1,
     seed: Optional[int] = 42,
     min_epochs: int = 10,
     max_epochs: int = 50,
-    architecture: str = 'CNN',
-    boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
     **model_kwargs,
     ) -> pl.Trainer:
     # Check if model already exists
@@ -262,7 +262,7 @@ def train_model(
         gpus=gpus,
         deterministic=True if seed else False,
         callbacks=[
-            EarlyStopping(monitor='val_acc', mode='max', patience=10),
+            # EarlyStopping(monitor='val_acc', mode='max', patience=10),
             checkpoint_callback
             ],
         )
