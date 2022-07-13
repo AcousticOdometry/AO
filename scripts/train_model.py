@@ -128,14 +128,6 @@ SPLIT_STRATEGIES = {
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None'],
-            train_split=0.8,
-            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
-            val_devices=[],
-            ),
-    'validate-other-devices':
-        partial(
-            _split_by_transform_and_devices,
-            use_transforms=['None'],
             train_split=1,
             test_devices=[],
             val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
@@ -152,17 +144,17 @@ SPLIT_STRATEGIES = {
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None', 'add-random-snr-noise'],
-            train_split=0.8,
-            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
-            val_devices=[],
+            train_split=1,
+            test_devices=[],
+            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
             ),
     'all-transforms':
         partial(
             _split_by_transform_and_devices,
             use_transforms=None,
-            train_split=0.8,
-            test_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
-            val_devices=[],
+            train_split=1,
+            test_devices=[],
+            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
             ),
     }
 
@@ -182,7 +174,7 @@ def train_model(
     split_strategy: str,
     models_folder: str,
     architecture: str = 'CNN',
-    task: str = 'OrdinalClassification',
+    task: str = 'Classification',
     task_options: dict = {
         'boundaries': np.linspace(0.005, 0.065, 7),
         },
@@ -190,7 +182,7 @@ def train_model(
     gpus: Union[int, List[int]] = -1,
     seed: Optional[int] = 1,
     min_epochs: int = 10,
-    max_epochs: int = 50,
+    max_epochs: int = 20,
     **model_kwargs,
     ) -> pl.Trainer:
     # Check if model already exists
@@ -210,11 +202,11 @@ def train_model(
     else:
         dataset_rng = None
         config['seed'] = seed
-    # TODO Handle exception
     # Get a model for the task and architecture
     model_class = getattr(ao.models, task + architecture)
+    # TODO Should this be in dataset?
     config['task'] = task
-    if task == 'OrdinalClassification':
+    if task.endswith('Classification'):
         boundaries = task_options['boundaries']
         config['boundaries'] = boundaries.tolist()
         output_dim = len(boundaries) + 1
@@ -223,6 +215,13 @@ def train_model(
             boundaries=torch.from_numpy(boundaries),
             var='Vx',
             )
+        monitor = 'val_acc'
+        mode = 'max'
+    elif task == 'Regression':
+        output_dim = 1
+        get_label = lambda sample: torch.tensor([sample['Vx']])
+        monitor = 'val_mae'
+        mode = 'min'
     else:
         raise NotImplementedError
     # Get dataset
@@ -254,7 +253,7 @@ def train_model(
     # Configure trainer and train
     logger = pl.loggers.TensorBoardLogger(save_dir=CACHE_FOLDER, name=name)
     checkpoint_callback = ModelCheckpoint(
-        dirpath=logger.log_dir, save_top_k=2, monitor="val_acc"
+        dirpath=logger.log_dir, save_top_k=2, monitor=monitor
         )
     trainer = pl.Trainer(
         accelerator='auto',
@@ -264,8 +263,7 @@ def train_model(
         gpus=gpus,
         deterministic=True if seed else False,
         callbacks=[
-            EarlyStopping(monitor='val_acc', mode='max', patience=10),
-            checkpoint_callback
+            EarlyStopping(monitor=monitor, mode=mode), checkpoint_callback
             ],
         )
     trainer.fit(model, dataset)

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from typing import Tuple
 from abc import abstractmethod
-from torchmetrics.functional import accuracy
+from torchmetrics.functional import accuracy, mean_absolute_error
 
 
 class AcousticOdometryBase(pl.LightningModule):
@@ -36,6 +36,7 @@ class AcousticOdometryBase(pl.LightningModule):
             {f"train_{k}": v
              for k, v in metrics.items() if k != 'loss'},
             on_epoch=True,
+            on_step=False,
             )
         self.log('train_loss', metrics['loss'], on_epoch=True, on_step=True)
         return metrics['loss']
@@ -46,6 +47,7 @@ class AcousticOdometryBase(pl.LightningModule):
             {f"val_{k}": v
              for k, v in metrics.items()},
             on_epoch=True,
+            on_step=False,
             )
         return metrics['loss']
 
@@ -55,9 +57,20 @@ class AcousticOdometryBase(pl.LightningModule):
             {f"test_{k}": v
              for k, v in metrics.items()},
             on_epoch=True,
+            on_step=False,
             )
         return metrics['loss']
 
+class RegressionBase(AcousticOdometryBase):
+    cost_function = nn.MSELoss()
+
+    def _shared_eval_step(self, batch, batch_idx):
+        x, y = batch
+        prediction = self(x.float())
+        return {
+            'loss': self.cost_function(prediction, y),
+            'mae': mean_absolute_error(prediction, y)
+            }
 
 class ClassificationBase(AcousticOdometryBase):
     cost_function = nn.CrossEntropyLoss()
