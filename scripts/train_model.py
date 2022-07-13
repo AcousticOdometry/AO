@@ -182,10 +182,13 @@ def train_model(
     split_strategy: str,
     models_folder: str,
     architecture: str = 'CNN',
-    boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
+    task: str = 'OrdinalClassification',
+    task_options: dict = {
+        'boundaries': np.linspace(0.005, 0.065, 7),
+        },
     batch_size: int = 32,
     gpus: Union[int, List[int]] = -1,
-    seed: Optional[int] = 0,
+    seed: Optional[int] = 1,
     min_epochs: int = 10,
     max_epochs: int = 50,
     **model_kwargs,
@@ -207,8 +210,12 @@ def train_model(
     else:
         dataset_rng = None
         config['seed'] = seed
-    if boundaries is not None:
-        config['task'] = 'classification'
+    # TODO Handle exception
+    # Get a model for the task and architecture
+    model_class = getattr(ao.models, task + architecture)
+    config['task'] = task
+    if task == 'OrdinalClassification':
+        boundaries = task_options['boundaries']
         config['boundaries'] = boundaries.tolist()
         output_dim = len(boundaries) + 1
         get_label = partial(
@@ -217,9 +224,7 @@ def train_model(
             var='Vx',
             )
     else:
-        raise ValueError(
-            'Could not determine whether to use classification or regression'
-            )
+        raise NotImplementedError
     # Get dataset
     dataset = WheelTestBedDataset(
         dataset,
@@ -238,11 +243,7 @@ def train_model(
             )
     config['split_strategy'] = split_strategy
     # Initialize model
-    if architecture == 'CNN':
-        model_class = ao.models.CNN
-        learning_rate = 0.0001
-    else:
-        raise ValueError(f"Unknown architecture {architecture}")
+    learning_rate = 0.0001
     model = model_class(
         input_dim=dataset.input_dim,
         output_dim=output_dim,
@@ -263,7 +264,7 @@ def train_model(
         gpus=gpus,
         deterministic=True if seed else False,
         callbacks=[
-            # EarlyStopping(monitor='val_acc', mode='max', patience=10),
+            EarlyStopping(monitor='val_acc', mode='max', patience=10),
             checkpoint_callback
             ],
         )
