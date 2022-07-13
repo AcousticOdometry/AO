@@ -185,7 +185,7 @@ def train_model(
     boundaries: Optional[np.ndarray] = np.linspace(0.005, 0.075, 8),
     batch_size: int = 32,
     gpus: Union[int, List[int]] = -1,
-    seed: Optional[int] = 42,
+    seed: Optional[int] = 0,
     min_epochs: int = 10,
     max_epochs: int = 50,
     **model_kwargs,
@@ -226,6 +226,7 @@ def train_model(
         split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
         get_label=get_label,
+        shuffle=10E3,
         rng=dataset_rng,
         )
     print(f"Using dataset: {dataset.config['name']}")
