@@ -33,7 +33,7 @@ class RegressionCNN(RegressionBase):
             )
         self.conv2_drop = nn.Dropout2d()
         self.flatten = nn.Flatten()
-        fc1_input = torch.numel(self._forward(torch.zeros(input_dim)))
+        fc1_input = torch.numel(self._forward(torch.zeros((1, *input_dim))))
         self.fc1 = nn.Linear(fc1_input, hidden_size)
         self.fc2 = nn.Linear(hidden_size, self.hparams['output_dim'])
 
@@ -74,7 +74,7 @@ class ClassificationCNN(ClassificationBase):
             )
         self.conv2_drop = nn.Dropout2d()
         self.flatten = nn.Flatten()
-        fc1_input = torch.numel(self._forward(torch.zeros(input_dim)))
+        fc1_input = torch.numel(self._forward(torch.zeros((1, *input_dim))))
         self.fc1 = nn.Linear(fc1_input, hidden_size)
         self.fc2 = nn.Linear(hidden_size, self.hparams['output_dim'])
 
@@ -116,7 +116,7 @@ class OrdinalClassificationCNN(OrdinalClassificationBase):
             )
         self.conv2_drop = nn.Dropout2d()
         self.flatten = nn.Flatten()
-        fc1_input = torch.numel(self._forward(torch.zeros(input_dim)))
+        fc1_input = torch.numel(self._forward(torch.zeros((1, *input_dim))))
         self.fc1 = nn.Linear(fc1_input, hidden_size)
         self.fc2 = nn.Linear(hidden_size, self.hparams['output_dim'])
 
