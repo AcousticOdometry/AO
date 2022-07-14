@@ -53,7 +53,7 @@ if __name__ == '__main__':
         'cnn-class-big': {
             'dataset': 'base',
             'split_strategy': 'base',
-            'task': 'Clasification',
+            'task': 'Classification',
             'task_options': {
                 'boundaries': np.linspace(0.005, 0.065, 7)
                 },
@@ -67,7 +67,7 @@ if __name__ == '__main__':
         'cnn-class-med': {
             'dataset': 'base',
             'split_strategy': 'base',
-            'task': 'Clasification',
+            'task': 'Classification',
             'task_options': {
                 'boundaries': np.linspace(0.005, 0.065, 7)
                 },
@@ -81,7 +81,7 @@ if __name__ == '__main__':
         'cnn-ordin-big': {
             'dataset': 'base',
             'split_strategy': 'base',
-            'task': 'OrdinalClasification',
+            'task': 'OrdinalClassification',
             'task_options': {
                 'boundaries': np.linspace(0.005, 0.065, 7)
                 },
@@ -95,7 +95,7 @@ if __name__ == '__main__':
         'cnn-ordin-med': {
             'dataset': 'base',
             'split_strategy': 'base',
-            'task': 'OrdinalClasification',
+            'task': 'OrdinalClassification',
             'task_options': {
                 'boundaries': np.linspace(0.005, 0.065, 7)
                 },

@@ -23,7 +23,7 @@ from tqdm import tqdm
 from pathlib import Path
 from functools import partial
 from dotenv import load_dotenv
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 CACHE_FOLDER = Path(__file__).parent.parent / 'models'
@@ -104,9 +104,16 @@ def _split_by_transform_and_devices(
     train_split: float = 0.8,
     test_devices: List[str] = ['rode-videomic-ntg-top', 'rode-smartlav-top'],
     val_devices: List[str] = [],
+    filter_recordings: Callable[[dict], bool] = lambda params: True,
     ):
+    use_recordings = [
+        i for i, r in enumerate(config['recordings'])
+        if filter_recordings(ao.dataset.parse_filename(r))
+        ]
     train_indices, val_indices, test_indices = [], [], []
     for index, sample in data.iterrows():
+        if sample['recording'] not in use_recordings:
+            continue
         if use_transforms is not None:
             if sample['transform'] not in use_transforms:
                 continue
@@ -121,8 +128,6 @@ def _split_by_transform_and_devices(
     return (train_indices, val_indices, test_indices)
 
 
-# TODO _split_no_negative_slip
-
 SPLIT_STRATEGIES = {
     'base':
         partial(
@@ -131,6 +136,19 @@ SPLIT_STRATEGIES = {
             train_split=1,
             test_devices=[],
             val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            ),
+    'no-negative-slip':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None'],
+            train_split=1,
+            test_devices=[],
+            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
+            filter_recordings=lambda r: any([
+                r['s'] == 'nan',
+                np.isnan(float(r['s'])),
+                float(r['s']) >= 0,
+                ]),
             ),
     'all-devices':
         partial(
