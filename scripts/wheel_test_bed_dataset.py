@@ -15,8 +15,42 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import Optional, Callable, Tuple, List
 
-CACHE_FOLDER = Path(__file__).parent.parent / 'datasets'
-CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
+LOCAL_DATASETS_FOLDER = Path(__file__).parent.parent / 'datasets'
+LOCAL_DATASETS_FOLDER.mkdir(parents=True, exist_ok=True)
+LOCAL_EVALUATION_FOLDER = Path(__file__).parent.parent / 'evaluation'
+LOCAL_EVALUATION_FOLDER.mkdir(parents=True, exist_ok=True)
+
+
+def _get_evaluation_folder(evaluation_folder: str) -> Path:
+    # Full path provided
+    evaluation_path = Path(evaluation_folder)
+    if evaluation_path.is_absolute():
+        return evaluation_path
+    # Full url provided
+    folder_id = GDrive.get_folder_id(evaluation_folder)
+    if not folder_id:
+        raise ValueError(
+            f"{evaluation_folder = } is not a valid path or google drive url"
+            )
+    gdrive = GDrive()
+    evaluation_folder = LOCAL_EVALUATION_FOLDER
+    to_download = []
+    for r in gdrive.list_folder(folder_id):
+        recording = evaluation_folder / r['title']
+        recording.mkdir(exist_ok=True)
+        for f in gdrive.list_folder(r['id']):
+            if not (
+                f['title'].endswith('.wav') or f['title'].endswith('.yaml')
+                or f['title'].endswith('.csv')
+                ):
+                continue
+            elif (recording / f['title']).exists():
+                continue
+            to_download.append((recording / f['title'], f))
+    if to_download:
+        for path, gfile in tqdm(to_download, desc='Evaluation', unit='file'):
+            gdrive.download_file(gfile, path)
+    return evaluation_folder
 
 
 def _download_dataset_from_gdrive(
@@ -26,7 +60,7 @@ def _download_dataset_from_gdrive(
         gdrive = GDrive()
     folder = gdrive.drive.CreateFile({'id': folder_id})
     folder.FetchMetadata(fields='title')
-    dataset_path = CACHE_FOLDER / folder['title']
+    dataset_path = LOCAL_DATASETS_FOLDER / folder['title']
     dataset_path.mkdir(exist_ok=True)
     to_download = []
     for f in gdrive.list_folder(folder_id):
@@ -36,7 +70,7 @@ def _download_dataset_from_gdrive(
             ) and not (dataset_path / f['title']).exists()):
             to_download.append(f)
     if to_download:
-        for f in tqdm(to_download, desc='Files', unit='file'):
+        for f in tqdm(to_download, desc='Dataset', unit='file'):
             gdrive.download_file(f, dataset_path / f['title'])
     return dataset_path
 
@@ -75,9 +109,8 @@ def _get_dataset_path(dataset: str, datasets_folder: str) -> Path:
             )
     # Can't resolve dataset path
     raise ValueError(
-        f"DATASETS_FOLDER enviroment variable is set to `{datasets_folder}`"
-        "but it doesn't point to a valid local folder nor is a google drive "
-        "folder url."
+        f"Provided `{datasets_folder}` doesn't point to a valid local folder "
+        "nor is a google drive folder url."
         )
 
 
@@ -100,6 +133,24 @@ def _decode_npy(_bytes):
     return np.load(io.BytesIO(_bytes))
 
 
+class RecordingsDataset(torch.utils.data.Dataset):
+
+    def __init__(self, recordings: List[Path]):
+        super().__init__()
+        self.recordings = recordings
+
+    def __len__(self):
+        return sum([len(r.glob('*.wav')) for r in self.recordings])
+
+    def __iter__(self):
+        for recording in self.recordings:
+            gt = pd.read_csv(
+                recording / 'ground_truth.csv', index_col='timestamp'
+                )
+            for wav_file in recording.glob('*.wav'):
+                yield wav_file, gt
+
+
 class WheelTestBedDataset(pl.LightningDataModule):
 
     def __init__(
@@ -108,6 +159,9 @@ class WheelTestBedDataset(pl.LightningDataModule):
         split_data: Callable[[pd.DataFrame, dict], Tuple[List[int], List[int],
                                                          List[int]]],
         datasets_folder: Optional[str] = os.getenv('DATASETS_FOLDER', None),
+        evaluation_folder: Optional[str] = os.getenv(
+            'EVALUATION_FOLDER', None
+            ),
         get_label: Callable[[dict], torch.tensor] = lambda sample: sample,
         batch_size: int = 6,
         shuffle: int = 1E4,
@@ -116,7 +170,10 @@ class WheelTestBedDataset(pl.LightningDataModule):
         super().__init__()
         if datasets_folder is None:
             load_dotenv()
-            datasets_folder = os.getenv('DATASETS_FOLDER', None)
+            datasets_folder = os.environ['DATASETS_FOLDER']
+        if evaluation_folder is None:
+            load_dotenv()
+            evaluation_folder = os.environ['EVALUATION_FOLDER']
         self.get_label = get_label
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -126,7 +183,7 @@ class WheelTestBedDataset(pl.LightningDataModule):
         # Load configuration
         self.config = ao.io.yaml_load(self.dataset_path / 'dataset.yaml')
         self.config['name'] = self.dataset_path.name
-        # Prepare data
+        # Prepare training data
         self.shards = [
             f"file:{self.dataset_path / s_name}"
             for s_name in self.config['shards'].keys()
@@ -138,9 +195,13 @@ class WheelTestBedDataset(pl.LightningDataModule):
                 ],
             ignore_index=True,
             )
-        self.train_indices, self.val_indices, self.test_indices = split_data(
-            self.data, self.config
-            )
+        self.train_indices, _, _ = split_data(self.data, self.config)
+        # Prepare evaluation data
+        self.evaluation_folder = _get_evaluation_folder(evaluation_folder)
+        self.test_recordings = [
+            r for r in self.evaluation_folder.iterdir() if r.is_dir()
+            ]
+        self.val_recordings = self.test_recordings[0:1]
 
     @property
     def input_dim(self):
@@ -159,14 +220,6 @@ class WheelTestBedDataset(pl.LightningDataModule):
     @property
     def train_data(self):
         return self.data.iloc[self.train_indices]
-
-    @property
-    def val_data(self):
-        return self.data.iloc[self.val_indices]
-
-    @property
-    def test_data(self):
-        return self.data.iloc[self.test_indices]
 
     def get_features(self, features: np.ndarray):
         return torch.from_numpy(features)
@@ -189,10 +242,10 @@ class WheelTestBedDataset(pl.LightningDataModule):
         return self.get_dataloader(self.train_indices)
 
     def val_dataloader(self):
-        return self.get_dataloader(self.val_indices)
+        return RecordingsDataset(self.val_recordings)
 
     def test_dataloader(self):
-        return self.get_dataloader(self.test_indices)
+        return RecordingsDataset(self.test_recordings)
 
 
 if __name__ == "__main__":

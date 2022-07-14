@@ -11,6 +11,7 @@ import ao
 
 from gdrive import GDrive
 from wheel_test_bed_dataset import WheelTestBedDataset
+from odometry import generate_file_acoustic_odometry
 
 import os
 import torch
@@ -73,10 +74,9 @@ def save_model(
     torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
     ao.io.yaml_dump(dict(config), model_folder / 'model.yaml')
     ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
-    for split in ['train', 'val', 'test']:
-        getattr(dataset, f"{split}_data").to_csv(
-            model_folder / f"{split}_data.csv", index_label='index'
-            )
+    dataset.train_data.to_csv(
+        model_folder / f"train_data.csv", index_label='index'
+        )
     # Upload to Google Drive if needed
     if folder_id:
         # Create model folder
@@ -186,6 +186,71 @@ def _bucketize_sample(sample: dict, boundaries: np.ndarray, var: str):
         )
 
 
+# TODO Unlabeling
+
+# Validation
+
+
+def _validation_step(
+    batch,
+    batch_idx,
+    model: pl.LightningModule,
+    dataset_config: dict,
+    get_Vx: callable,
+    ):
+    wav_file, ground_truth = batch
+    odom = generate_file_acoustic_odometry(
+        wav_file=wav_file,
+        model=model,
+        dataset_config=dataset_config,
+        get_Vx=get_Vx,
+        )
+    evaluation = ao.evaluate.odometry(odom, ground_truth, delta_seconds=1)
+    for rpe_col in evaluation.columns:
+        if 'RPE' in rpe_col:
+            break
+    else:
+        raise RuntimeError('No RPE column found')
+    model.log(
+        'val_MRPE',
+        evaluation[rpe_col].mean(),
+        batch_size=1,
+        on_step=True,
+        on_epoch=True
+        )
+
+
+def _test_step(
+    batch,
+    batch_idx,
+    model: pl.LightningModule,
+    dataset_config: dict,
+    get_Vx: callable,
+    # TODO evaluation_recordings_folder: str,
+    ):
+    wav_file, ground_truth = batch
+    odom = generate_file_acoustic_odometry(
+        wav_file=wav_file,
+        model=model,
+        dataset_config=dataset_config,
+        get_Vx=get_Vx,
+        )
+    # TODO save_odometry(odom, evaluation_recordings_folder, wav_file)
+    evaluation = ao.evaluate.odometry(odom, ground_truth, delta_seconds=1)
+    for rpe_col in evaluation.columns:
+        if 'RPE' in rpe_col:
+            break
+    else:
+        raise RuntimeError('No RPE column found')
+    model.log(
+        'test_MRPE',
+        evaluation[rpe_col].mean(),
+        batch_size=1,
+        on_step=True,
+        on_epoch=True
+        )
+
+
 def train_model(
     name: str,
     dataset: str,
@@ -226,6 +291,9 @@ def train_model(
     config['task'] = task
     if task.endswith('Classification'):
         boundaries = task_options['boundaries']
+        centers = list((boundaries[1:] + boundaries[:-1]) / 2)
+        centers.insert(0, 2 * centers[0] - centers[1])
+        centers.append(2 * centers[-1] - centers[-2])
         config['boundaries'] = boundaries.tolist()
         output_dim = len(boundaries) + 1
         get_label = partial(
@@ -233,13 +301,16 @@ def train_model(
             boundaries=torch.from_numpy(boundaries),
             var='Vx',
             )
-        monitor = 'val_acc'
-        mode = 'max'
+        if task.startswith('Ordinal'):
+            get_Vx = lambda pred: centers[int(
+                max(((pred > 0.5).cumprod(axis=1).sum(axis=1) - 1).item(), 0)
+                )]
+        else:
+            get_Vx = lambda pred: centers[int(pred.argmax(1).sum().item())]
     elif task == 'Regression':
         output_dim = 1
         get_label = lambda sample: torch.tensor([sample['Vx']])
-        monitor = 'val_mae'
-        mode = 'min'
+        get_Vx = lambda pred: pred.item()
     else:
         raise NotImplementedError
     # Get dataset
@@ -252,12 +323,11 @@ def train_model(
         rng=dataset_rng,
         )
     print(f"Using dataset: {dataset.config['name']}")
-    for split in ['train', 'val', 'test']:
-        n_samples = len(getattr(dataset, f'{split}_data').index)
-        print(
-            f"{split} samples: {n_samples}, "
-            f"batches: {int(n_samples / dataset.batch_size)}"
-            )
+    n_samples = len(dataset.train_data.index)
+    print(
+        f"train samples: {n_samples}, "
+        f"batches: {int(n_samples / dataset.batch_size)}"
+        )
     config['split_strategy'] = split_strategy
     # Initialize model
     learning_rate = 0.0001
@@ -267,11 +337,24 @@ def train_model(
         lr=learning_rate,
         **model_kwargs
         )
+
+    model.validation_step = partial(
+        _validation_step,
+        model=model,
+        dataset_config=dataset.config,
+        get_Vx=get_Vx,
+        )
+    model.test_step = partial(
+        _test_step,
+        model=model,
+        dataset_config=dataset.config,
+        get_Vx=get_Vx,
+        )
     config['class'] = model_class.__name__
     # Configure trainer and train
     logger = pl.loggers.TensorBoardLogger(save_dir=CACHE_FOLDER, name=name)
     checkpoint_callback = ModelCheckpoint(
-        dirpath=logger.log_dir, save_top_k=2, monitor=monitor
+        dirpath=logger.log_dir, save_top_k=2, monitor='val_MRPE'
         )
     trainer = pl.Trainer(
         accelerator='auto',
@@ -279,9 +362,10 @@ def train_model(
         max_epochs=max_epochs,
         logger=logger,
         gpus=gpus,
+        num_sanity_val_steps=0,
         deterministic=True if seed else False,
         callbacks=[
-            EarlyStopping(monitor=monitor, mode=mode), checkpoint_callback
+            EarlyStopping(monitor='val_MRPE', mode='min'), checkpoint_callback
             ],
         )
     trainer.fit(model, dataset)

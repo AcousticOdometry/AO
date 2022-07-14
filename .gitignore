@@ -5,6 +5,7 @@ vcpkg_installed/
 gdrive_credentials.json
 /models/
 /datasets/
+/evaluation/
 
 /_*/
 
