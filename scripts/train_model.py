@@ -11,13 +11,13 @@ import ao
 
 from gdrive import GDrive
 from wheel_test_bed_dataset import WheelTestBedDataset
-from odometry import generate_file_acoustic_odometry
 
 import os
 import torch
 import shutil
 import random
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 
 from tqdm import tqdm
@@ -60,9 +60,10 @@ def save_model(
     config: dict,
     dataset: pl.LightningDataModule,
     models_folder: str,
+    evaluation_folder: Optional[str] = None,
     ):
+    # Handle model first
     folder_id = GDrive.get_folder_id(models_folder)
-    # Save everything locally first
     if folder_id:
         model_folder = Path(logger.log_dir)
     else:
@@ -70,7 +71,9 @@ def save_model(
         model_folder.mkdir(parents=True, exist_ok=True)
         # Copy from log_dir to models_folder
         for f in Path(logger.log_dir).iterdir():
-            shutil.copy(str(f), str(model_folder / f.name))
+            if f.is_file():
+                shutil.copy(str(f), str(model_folder / f.name))
+    # Save everything locally first
     torch.jit.save(model.to_torchscript(), model_folder / 'model.pt')
     ao.io.yaml_dump(dict(config), model_folder / 'model.yaml')
     ao.io.yaml_dump(dataset.config, model_folder / 'dataset.yaml')
@@ -86,6 +89,42 @@ def save_model(
         # Upload all files
         for f in tqdm([f for f in model_folder.iterdir() if f.is_file()],
                       desc='Upload model',
+                      unit='file'):
+            gdrive_file = gdrive.create_file(f.name, upload_to['id'])
+            gdrive_file.SetContentFile(str(f))
+            gdrive_file.Upload()
+    # Handle odometry data
+    if not evaluation_folder:
+        return
+    folder_id = GDrive.get_folder_id(evaluation_folder)
+    if not folder_id:
+        raise NotImplementedError('Save odometry to local evaluation folder')
+    gdrive = GDrive()
+    # For every evaluation found in log_dir
+    evaluations = [f for f in Path(logger.log_dir).iterdir() if f.is_dir()]
+    for evaluation in tqdm(evaluations, desc='Upload odometry', unit='folder'):
+        # Go to evaluation_folder / evaluation.name
+        for recording in gdrive.list_folder(folder_id):
+            if recording['title'] == evaluation.name:
+                break
+        else:
+            raise RuntimeError(f"Recording {evaluation.name} not found")
+        # Go to evaluation_folder / subdirectory.name / AO
+        for ao_folder in gdrive.list_folder(recording['id']):
+            if ao_folder['title'] == 'AO':
+                break
+        else:
+            ao_folder = gdrive.create_folder('AO', recording['id'])
+            ao_folder.Upload()
+        #  Make logger.name folder, delete existing one if there is
+        for _folder in gdrive.list_folder(ao_folder['id']):
+            if _folder['title'] == logger.name:
+                _folder.Trash()
+        upload_to = gdrive.create_folder(logger.name, ao_folder['id'])
+        upload_to.Upload()
+        # Upload evaluation contents into logger.name folder
+        for f in tqdm([f for f in evaluation.iterdir() if f.is_file()],
+                      desc=evaluation.name,
                       unit='file'):
             gdrive_file = gdrive.create_file(f.name, upload_to['id'])
             gdrive_file.SetContentFile(str(f))
@@ -137,6 +176,24 @@ SPLIT_STRATEGIES = {
             test_devices=[],
             val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
             ),
+    'no-laptop':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None'],
+            train_split=1,
+            test_devices=['laptop-built-in-microphone'],
+            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            ),
+    'only-videomic':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None'],
+            train_split=1,
+            test_devices=[
+                'laptop-built-in-microphone', 'rode-smartlav-wheel-axis'
+                ],
+            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            ),
     'no-negative-slip':
         partial(
             _split_by_transform_and_devices,
@@ -186,69 +243,104 @@ def _bucketize_sample(sample: dict, boundaries: np.ndarray, var: str):
         )
 
 
-# TODO Unlabeling
+# Evaluation
 
-# Validation
+
+def _odometry_step(
+    batch,
+    model: pl.LightningModule,
+    get_Vx: callable,
+    ):
+    features = batch['features']
+    frame_duration = batch['frame_duration']
+    n_frames = features.shape[2]
+    segment_frames = model.hparams['input_dim'][2]
+    num_segments = int(n_frames - segment_frames)
+    features = torch.from_numpy(features[np.newaxis, :, :, :]
+                                ).float().to(model.device)
+    Vx = np.empty(num_segments)
+    for i in range(num_segments):
+        prediction = model(features[:, :, :, i:i + segment_frames])
+        Vx[i] = get_Vx(prediction)
+    start = batch['start_timestamp'] + frame_duration * (segment_frames - 1)
+    timestamps = np.linspace(
+        start,
+        start + num_segments * frame_duration,
+        num=num_segments,
+        endpoint=True,
+        )
+    Vx = pd.Series(Vx, index=timestamps)
+    odom = pd.concat([Vx, Vx.index.to_series().diff() * Vx], axis=1)
+    odom.columns = ['Vx', 'tx']
+    odom.iloc[0, :] = 0
+    odom['X'] = odom['tx'].cumsum()
+    return odom
 
 
 def _validation_step(
     batch,
     batch_idx,
     model: pl.LightningModule,
-    dataset_config: dict,
     get_Vx: callable,
     ):
-    wav_file, ground_truth = batch
-    odom = generate_file_acoustic_odometry(
-        wav_file=wav_file,
-        model=model,
-        dataset_config=dataset_config,
-        get_Vx=get_Vx,
+    odom = _odometry_step(batch, model, get_Vx)
+    evaluation = ao.evaluate.odometry(
+        odom, batch['ground_truth'], delta_seconds=1
         )
-    evaluation = ao.evaluate.odometry(odom, ground_truth, delta_seconds=1)
-    for rpe_col in evaluation.columns:
-        if 'RPE' in rpe_col:
-            break
-    else:
-        raise RuntimeError('No RPE column found')
-    model.log(
-        'val_MRPE',
-        evaluation[rpe_col].mean(),
-        batch_size=1,
-        on_step=True,
-        on_epoch=True
-        )
+    for col in evaluation.columns:
+        if 'RPE' in col:
+            model.log(
+                'val_MRPE',
+                evaluation[col].mean(),
+                batch_size=1,
+                on_step=True,
+                on_epoch=True
+                )
+        elif 'ATE' in col:
+            model.log(
+                'val_MATE',
+                evaluation[col].mean(),
+                batch_size=1,
+                on_step=True,
+                on_epoch=True
+                )
 
 
 def _test_step(
     batch,
     batch_idx,
     model: pl.LightningModule,
-    dataset_config: dict,
     get_Vx: callable,
-    # TODO evaluation_recordings_folder: str,
+    log_dir: Optional[Path] = None,
     ):
-    wav_file, ground_truth = batch
-    odom = generate_file_acoustic_odometry(
-        wav_file=wav_file,
-        model=model,
-        dataset_config=dataset_config,
-        get_Vx=get_Vx,
+    odom = _odometry_step(batch, model, get_Vx)
+    evaluation = ao.evaluate.odometry(
+        odom, batch['ground_truth'], delta_seconds=1
         )
-    # TODO save_odometry(odom, evaluation_recordings_folder, wav_file)
-    evaluation = ao.evaluate.odometry(odom, ground_truth, delta_seconds=1)
-    for rpe_col in evaluation.columns:
-        if 'RPE' in rpe_col:
-            break
-    else:
-        raise RuntimeError('No RPE column found')
-    model.log(
-        'test_MRPE',
-        evaluation[rpe_col].mean(),
-        batch_size=1,
-        on_step=True,
-        on_epoch=True
-        )
+    if log_dir:
+        folder = Path(log_dir) / batch['recording']
+        folder.mkdir(exist_ok=True)
+        odom.to_csv(
+            folder / batch['file'].replace('.wav', '.odometry.csv'),
+            index_label='timestamp',
+            )
+    for col in evaluation.columns:
+        if 'RPE' in col:
+            model.log(
+                'test_MRPE',
+                evaluation[col].mean(),
+                batch_size=1,
+                on_step=True,
+                on_epoch=True
+                )
+        elif 'ATE' in col:
+            model.log(
+                'test_MATE',
+                evaluation[col].mean(),
+                batch_size=1,
+                on_step=True,
+                on_epoch=True
+                )
 
 
 def train_model(
@@ -277,14 +369,13 @@ def train_model(
         'split_strategy': split_strategy,
         'architecture': architecture
         }
-    if seed:
+    if isinstance(seed, int):
         pl.seed_everything(seed, workers=True)
         dataset_rng = random.Random(seed)
         SPLIT_RNG.seed(seed)
-        config['seed'] = seed
     else:
         dataset_rng = None
-        config['seed'] = seed
+    config['seed'] = seed
     # Get a model for the task and architecture
     model_class = getattr(ao.models, task + architecture)
     # TODO Should this be in dataset?
@@ -339,16 +430,7 @@ def train_model(
         )
 
     model.validation_step = partial(
-        _validation_step,
-        model=model,
-        dataset_config=dataset.config,
-        get_Vx=get_Vx,
-        )
-    model.test_step = partial(
-        _test_step,
-        model=model,
-        dataset_config=dataset.config,
-        get_Vx=get_Vx,
+        _validation_step, model=model, get_Vx=get_Vx
         )
     config['class'] = model_class.__name__
     # Configure trainer and train
@@ -369,14 +451,25 @@ def train_model(
             ],
         )
     trainer.fit(model, dataset)
+    # TODO this could be a separate function
     if checkpoint_callback.best_model_path:
         model = model_class.load_from_checkpoint(
             checkpoint_path=checkpoint_callback.best_model_path
             )
+    model.test_step = partial(
+        _test_step, model=model, get_Vx=get_Vx, log_dir=Path(logger.log_dir)
+        )
     if not trainer.interrupted:
         trainer.test(model, dataset)
     # Save model
-    save_model(logger, model, config, dataset, models_folder)
+    save_model(
+        logger,
+        model,
+        config,
+        dataset,
+        models_folder,
+        evaluation_folder=os.getenv('EVALUATION_FOLDER', None)
+        )
     return trainer
 
 

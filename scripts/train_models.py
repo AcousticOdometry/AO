@@ -50,6 +50,20 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
+        'wtb-experiment-1': {
+            'dataset': 'wtb-experiment-1',
+            'split_strategy': 'base',
+            'task': 'Classification',
+            'task_options': {
+                'boundaries': np.linspace(0.005, 0.065, 7)
+                },
+            'architecture': 'CNN',
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
+            },
         'cnn-class-big': {
             'dataset': 'base',
             'split_strategy': 'base',
@@ -78,6 +92,34 @@ if __name__ == '__main__':
             'conv2_size': 5,
             'hidden_size': 256,
             },
+        'cnn-class-med-no-skid': {
+            'dataset': 'base',
+            'split_strategy': 'no-negative-slip',
+            'task': 'Classification',
+            'task_options': {
+                'boundaries': np.linspace(0.005, 0.065, 7)
+                },
+            'architecture': 'CNN',
+            'conv1_filters': 32,
+            'conv1_size': 5,
+            'conv2_filters': 64,
+            'conv2_size': 5,
+            'hidden_size': 256,
+            },
+        'cnn-class-small': {
+            'dataset': 'base',
+            'split_strategy': 'base',
+            'task': 'Classification',
+            'task_options': {
+                'boundaries': np.linspace(0.005, 0.065, 7)
+                },
+            'architecture': 'CNN',
+            'conv1_filters': 16,
+            'conv1_size': 5,
+            'conv2_filters': 32,
+            'conv2_size': 5,
+            'hidden_size': 256,
+            },
         'cnn-ordin-big': {
             'dataset': 'base',
             'split_strategy': 'base',
@@ -92,20 +134,20 @@ if __name__ == '__main__':
             'conv2_size': 5,
             'hidden_size': 512,
             },
-        'cnn-ordin-med': {
-            'dataset': 'base',
-            'split_strategy': 'base',
-            'task': 'OrdinalClassification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
-            'architecture': 'CNN',
-            'conv1_filters': 32,
-            'conv1_size': 5,
-            'conv2_filters': 64,
-            'conv2_size': 5,
-            'hidden_size': 256,
-            },
+        # 'cnn-ordin-med': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'task': 'OrdinalClassification',
+        #     'task_options': {
+        #         'boundaries': np.linspace(0.005, 0.065, 7)
+        #         },
+        #     'architecture': 'CNN',
+        #     'conv1_filters': 32,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 64,
+        #     'conv2_size': 5,
+        #     'hidden_size': 256,
+        #     },
         'cnn-regre-big': {
             'dataset': 'base',
             'split_strategy': 'base',
@@ -117,17 +159,17 @@ if __name__ == '__main__':
             'conv2_size': 5,
             'hidden_size': 512,
             },
-        'cnn-regre-med': {
-            'dataset': 'base',
-            'split_strategy': 'base',
-            'task': 'Regression',
-            'architecture': 'CNN',
-            'conv1_filters': 32,
-            'conv1_size': 5,
-            'conv2_filters': 64,
-            'conv2_size': 5,
-            'hidden_size': 256,
-            },
+        # 'cnn-regre-med': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'task': 'Regression',
+        #     'architecture': 'CNN',
+        #     'conv1_filters': 32,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 64,
+        #     'conv2_size': 5,
+        #     'hidden_size': 256,
+        #     },
         }
     for name, kwargs in models_to_train.items():
         if args.datasets and kwargs['dataset'] not in args.datasets:
@@ -142,7 +184,7 @@ if __name__ == '__main__':
                 gpus=[args.gpu],
                 min_epochs=10,
                 max_epochs=20,
-                seed=0,
+                seed=1,
                 **kwargs
                 )
             if trainer.interrupted:

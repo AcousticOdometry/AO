@@ -4,7 +4,9 @@ from gdrive import GDrive
 
 import io
 import os
+import re
 import torch
+import tempfile
 import numpy as np
 import pandas as pd
 import webdataset as wds
@@ -133,10 +135,11 @@ def _decode_npy(_bytes):
     return np.load(io.BytesIO(_bytes))
 
 
-class RecordingsDataset(torch.utils.data.Dataset):
+class RecordingsDataset(torch.utils.data.IterableDataset):
 
-    def __init__(self, recordings: List[Path]):
+    def __init__(self, recordings: List[Path], config: dict):
         super().__init__()
+        self.config = config
         self.recordings = recordings
 
     def __len__(self):
@@ -147,8 +150,81 @@ class RecordingsDataset(torch.utils.data.Dataset):
             gt = pd.read_csv(
                 recording / 'ground_truth.csv', index_col='timestamp'
                 )
-            for wav_file in recording.glob('*.wav'):
-                yield wav_file, gt
+            for wav_file in sorted(recording.glob('*.wav')):
+                file_config = ao.io.yaml_load(wav_file.with_suffix('.yaml'))
+                yield {
+                    'recording': recording.name,
+                    'file': wav_file.name,
+                    'features': self.features(wav_file),
+                    'start_timestamp': file_config['start_timestamp'],
+                    'frame_duration': self.config['frame_duration'] / 1000.0,
+                    'ground_truth': gt,
+                    }
+
+    def features(self, wav_file: Path):
+        try:
+            return np.load(
+                wav_file.parent / self.config['name'] /
+                wav_file.with_suffix('.npy').name
+                )
+        except FileNotFoundError:
+            wav_data, sample_rate = ao.io.audio_read(wav_file)
+            extractors = self.extractors(sample_rate)
+            features = ao.dataset.audio.features(wav_data, extractors)
+            folder = wav_file.parent / self.config['name']
+            folder.mkdir(exist_ok=True)
+            np.save(folder / wav_file.with_suffix('.npy').name, features)
+            return features
+
+    _extractors = {}
+
+    def extractors(self, sample_rate: int):
+        try:
+            return self._extractors[sample_rate]
+        except KeyError:
+            self._extractors[sample_rate] = self._build_extractors(
+                self.config, sample_rate
+                )
+            return self._extractors[sample_rate]
+
+    @staticmethod
+    def _build_extractors(dataset_config: dict, sample_rate: int):
+        # Build extractors
+        extractors = []
+        for extractor in dataset_config['extractors']:
+            # Get the extractor class
+            try:
+                extractor_class = getattr(ao.extractor, extractor['class'])
+            except AttributeError as e:
+                raise RuntimeError(
+                    f"Extractor `{extractor['class']}` not found: {e}"
+                    )
+            # Get the extractor keyword arguments
+            _kwargs = {}
+            for key, arg in extractor['kwargs'].items():
+                # Check if the argument is a function source
+                if isinstance(arg, str):
+                    match = re.search(r"def (?P<function_name>.*)\(", arg)
+                    if match:
+                        # If it is function source, execute it and get the
+                        # function handle
+                        # ! This code is unsafe, it could be tricked by a
+                        # ! maliciously built dataset_config file
+                        exec(arg)
+                        _kwargs[key] = eval(match.group('function_name'))
+                        continue
+                _kwargs[key] = arg
+            extractors.append(
+                extractor_class(
+                    num_samples=int(
+                        dataset_config['frame_duration'] * sample_rate / 1000
+                        ),
+                    num_features=dataset_config['frame_features'],
+                    sample_rate=sample_rate,
+                    **_kwargs
+                    )
+                )
+        return extractors
 
 
 class WheelTestBedDataset(pl.LightningDataModule):
@@ -198,17 +274,17 @@ class WheelTestBedDataset(pl.LightningDataModule):
         self.train_indices, _, _ = split_data(self.data, self.config)
         # Prepare evaluation data
         self.evaluation_folder = _get_evaluation_folder(evaluation_folder)
-        self.test_recordings = [
+        self.test_recordings = sorted([
             r for r in self.evaluation_folder.iterdir() if r.is_dir()
-            ]
+            ])
         self.val_recordings = self.test_recordings[0:1]
 
     @property
     def input_dim(self):
         return (
             len(self.config['extractors']),
-            self.config['segment_frames'],
             self.config['frame_features'],
+            self.config['segment_frames'],
             )
 
     @property
@@ -242,10 +318,10 @@ class WheelTestBedDataset(pl.LightningDataModule):
         return self.get_dataloader(self.train_indices)
 
     def val_dataloader(self):
-        return RecordingsDataset(self.val_recordings)
+        return RecordingsDataset(self.val_recordings, self.config)
 
     def test_dataloader(self):
-        return RecordingsDataset(self.test_recordings)
+        return RecordingsDataset(self.test_recordings, self.config)
 
 
 if __name__ == "__main__":
