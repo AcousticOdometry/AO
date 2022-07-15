@@ -5,18 +5,22 @@ import pytest
 import warnings
 import numpy as np
 
-# TODO test override Extractor
 
-
+@pytest.mark.parametrize(
+    'extractor_class', [ao.extractor.GammatoneFilterbank, ao.extractor.MFCC]
+    )
 @pytest.mark.parametrize('frame_duration', [1, 10, 100, 1000])
-@pytest.mark.parametrize('num_features', [64, 256, 0])
-def test_extractor(audio_data, frame_duration, num_features):
+@pytest.mark.parametrize('num_features', [64, 256])
+def test_extractor(audio_data, extractor_class, frame_duration, num_features):
     data, fs = audio_data
     num_samples = int(frame_duration / 1000 * fs)  # samples per frame
-    extractor = ao.extractor.GammatoneFilterbank(num_samples, num_features, fs)
+    extractor = extractor_class(num_samples, num_features, fs)
     for frame in ao.dataset.audio._frames(data, num_samples):
         output = extractor(frame)
-        assert len(output) == num_features
+        if isinstance(output, np.ndarray):
+            assert output.shape == (num_features,)
+        else:
+            assert len(output) == num_features
 
 
 @pytest.mark.parametrize('frame_duration', [10, 100])

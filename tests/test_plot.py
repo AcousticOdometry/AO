@@ -49,6 +49,19 @@ def test_gammatonegram(audio_data, savefig):
     savefig(f)
 
 
+def test_mfcc(audio_data, savefig):
+    data, sample_rate = audio_data
+    frame_length = 10  # [ms]
+    frame_samples = math.ceil(frame_length / 1000 * sample_rate)
+    extractor = ao.extractor.MFCC(
+        num_samples=frame_samples,
+        num_features=64,
+        sample_rate=sample_rate,
+        )
+    _, axs = ao.plot.features(data, sample_rate, extractor)
+    savefig(axs[0].get_figure())
+
+
 def test_odometry(odometry_ground_truth, savefig):
     fig, _ = ao.plot.odometry(odometry_ground_truth, suptitle='Ground truth')
     savefig(fig)
