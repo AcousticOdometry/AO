@@ -4,8 +4,6 @@ import torch
 import torchaudio
 import numpy as np
 
-from typing import Callable
-
 
 class MFCC(Extractor):
 
@@ -22,10 +20,9 @@ class MFCC(Extractor):
         self.mfcc = torchaudio.transforms.MFCC(
             sample_rate=self.sample_rate,
             n_mfcc=self.num_features,
-            log_mels=True,
             melkwargs={
-                'n_fft': 1,
-                'win_length': self.num_samples,
+                'n_fft': self.num_samples,
+                'hop_length': 2 * self.num_samples,
                 'n_mels': self.num_features,
                 },
             )
@@ -35,4 +32,4 @@ class MFCC(Extractor):
             samples = samples.mean(axis=0)
         else:
             samples = samples[self.on_channel, :]
-        return self.mfcc(torch.from_numpy(samples).float()).numpy()
+        return self.mfcc(torch.from_numpy(samples).float()).numpy().flatten()
