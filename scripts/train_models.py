@@ -50,7 +50,21 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
-        'no-laptop': {
+        'base': {
+            'dataset': 'base',
+            'split_strategy': 'base',
+            'task': 'Classification',
+            'task_options': {
+                'boundaries': np.linspace(0.005, 0.065, 7)
+                },
+            'architecture': 'CNN',
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
+            },
+        'base-no-laptop': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
             'task': 'Classification',
@@ -64,34 +78,34 @@ if __name__ == '__main__':
             'conv2_size': 5,
             'hidden_size': 512,
             },
-        'prototype': {
-            'dataset': 'wtb-experiment-1',
-            'split_strategy': 'base',
+        'base-only-videomic': {
+            'dataset': 'base',
+            'split_strategy': 'only-videomic',
             'task': 'Classification',
             'task_options': {
                 'boundaries': np.linspace(0.005, 0.065, 7)
                 },
-            'architecture': 'UnnormalizedCNN',
+            'architecture': 'CNN',
             'conv1_filters': 64,
             'conv1_size': 5,
             'conv2_filters': 128,
             'conv2_size': 5,
             'hidden_size': 512,
             },
-        # 'cnn-class-big': {
-        #     'dataset': 'base',
-        #     'split_strategy': 'base',
-        #     'task': 'Classification',
-        #     'task_options': {
-        #         'boundaries': np.linspace(0.005, 0.065, 7)
-        #         },
-        #     'architecture': 'CNN',
-        #     'conv1_filters': 64,
-        #     'conv1_size': 5,
-        #     'conv2_filters': 128,
-        #     'conv2_size': 5,
-        #     'hidden_size': 512,
-        #     },
+        'test-ordinal': {
+            'dataset': 'segment-140',
+            'split_strategy': 'only-videomic',
+            'task': 'OrdinalClassification',
+            'task_options': {
+                'boundaries': np.linspace(0.005, 0.065, 7)
+                },
+            'architecture': 'CNN',
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
+            },
         # 'cnn-class-med': {
         #     'dataset': 'base',
         #     'split_strategy': 'base',

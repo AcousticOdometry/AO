@@ -11,6 +11,7 @@ import ao
 
 from gdrive import GDrive
 from wheel_test_bed_dataset import WheelTestBedDataset
+from upload_model import upload_model, upload_odometry
 
 import os
 import torch
@@ -27,8 +28,8 @@ from dotenv import load_dotenv
 from typing import List, Optional, Union, Callable
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
-CACHE_FOLDER = Path(__file__).parent.parent / 'models'
-CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
+LOCAL_MODELS_FOLDER = Path(__file__).parent.parent / 'models'
+LOCAL_MODELS_FOLDER.mkdir(parents=True, exist_ok=True)
 
 # Utils
 
@@ -63,8 +64,8 @@ def save_model(
     evaluation_folder: Optional[str] = None,
     ):
     # Handle model first
-    folder_id = GDrive.get_folder_id(models_folder)
-    if folder_id:
+    models_folder_id = GDrive.get_folder_id(models_folder)
+    if models_folder_id:
         model_folder = Path(logger.log_dir)
     else:
         model_folder = Path(models_folder) / logger.name
@@ -81,54 +82,15 @@ def save_model(
         model_folder / f"train_data.csv", index_label='index'
         )
     # Upload to Google Drive if needed
-    if folder_id:
-        # Create model folder
-        gdrive = GDrive()
-        upload_to = gdrive.create_folder(logger.name, folder_id)
-        upload_to.Upload()
-        # Upload all files
-        for f in tqdm([f for f in model_folder.iterdir() if f.is_file()],
-                      desc='Upload model',
-                      unit='file'):
-            gdrive_file = gdrive.create_file(f.name, upload_to['id'])
-            gdrive_file.SetContentFile(str(f))
-            gdrive_file.Upload()
+    if models_folder_id:
+        upload_model(model_folder, models_folder_id)
     # Handle odometry data
     if not evaluation_folder:
         return
-    folder_id = GDrive.get_folder_id(evaluation_folder)
-    if not folder_id:
+    evaluation_folder_id = GDrive.get_folder_id(evaluation_folder)
+    if not evaluation_folder_id:
         raise NotImplementedError('Save odometry to local evaluation folder')
-    gdrive = GDrive()
-    # For every evaluation found in log_dir
-    evaluations = [f for f in Path(logger.log_dir).iterdir() if f.is_dir()]
-    for evaluation in tqdm(evaluations, desc='Upload odometry', unit='folder'):
-        # Go to evaluation_folder / evaluation.name
-        for recording in gdrive.list_folder(folder_id):
-            if recording['title'] == evaluation.name:
-                break
-        else:
-            raise RuntimeError(f"Recording {evaluation.name} not found")
-        # Go to evaluation_folder / subdirectory.name / AO
-        for ao_folder in gdrive.list_folder(recording['id']):
-            if ao_folder['title'] == 'AO':
-                break
-        else:
-            ao_folder = gdrive.create_folder('AO', recording['id'])
-            ao_folder.Upload()
-        #  Make logger.name folder, delete existing one if there is
-        for _folder in gdrive.list_folder(ao_folder['id']):
-            if _folder['title'] == logger.name:
-                _folder.Trash()
-        upload_to = gdrive.create_folder(logger.name, ao_folder['id'])
-        upload_to.Upload()
-        # Upload evaluation contents into logger.name folder
-        for f in tqdm([f for f in evaluation.iterdir() if f.is_file()],
-                      desc=evaluation.name,
-                      unit='file'):
-            gdrive_file = gdrive.create_file(f.name, upload_to['id'])
-            gdrive_file.SetContentFile(str(f))
-            gdrive_file.Upload()
+    upload_odometry(model_folder, evaluation_folder_id)
 
 
 # Splitting
@@ -403,7 +365,7 @@ def train_model(
         get_label = lambda sample: torch.tensor([sample['Vx']])
         get_Vx = lambda pred: pred.item()
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f"{task = }")
     # Get dataset
     dataset = WheelTestBedDataset(
         dataset,
@@ -434,7 +396,9 @@ def train_model(
         )
     config['class'] = model_class.__name__
     # Configure trainer and train
-    logger = pl.loggers.TensorBoardLogger(save_dir=CACHE_FOLDER, name=name)
+    logger = pl.loggers.TensorBoardLogger(
+        save_dir=LOCAL_MODELS_FOLDER, name=name
+        )
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger.log_dir, save_top_k=2, monitor='val_MRPE'
         )
@@ -451,7 +415,7 @@ def train_model(
             ],
         )
     trainer.fit(model, dataset)
-    # TODO this could be a separate function
+    # TODO this could be a separate script test_model.pt
     if checkpoint_callback.best_model_path:
         model = model_class.load_from_checkpoint(
             checkpoint_path=checkpoint_callback.best_model_path
