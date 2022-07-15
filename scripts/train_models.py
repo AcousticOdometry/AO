@@ -50,90 +50,104 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
-        'wtb-experiment-1': {
+        'no-laptop': {
+            'dataset': 'base',
+            'split_strategy': 'no-laptop',
+            'task': 'Classification',
+            'task_options': {
+                'boundaries': np.linspace(0.005, 0.065, 7)
+                },
+            'architecture': 'CNN',
+            'conv1_filters': 64,
+            'conv1_size': 5,
+            'conv2_filters': 128,
+            'conv2_size': 5,
+            'hidden_size': 512,
+            },
+        'prototype': {
             'dataset': 'wtb-experiment-1',
             'split_strategy': 'base',
             'task': 'Classification',
             'task_options': {
                 'boundaries': np.linspace(0.005, 0.065, 7)
                 },
-            'architecture': 'CNN',
+            'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
             'conv2_filters': 128,
             'conv2_size': 5,
             'hidden_size': 512,
             },
-        'cnn-class-big': {
-            'dataset': 'base',
-            'split_strategy': 'base',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
-            'architecture': 'CNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            },
-        'cnn-class-med': {
-            'dataset': 'base',
-            'split_strategy': 'base',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
-            'architecture': 'CNN',
-            'conv1_filters': 32,
-            'conv1_size': 5,
-            'conv2_filters': 64,
-            'conv2_size': 5,
-            'hidden_size': 256,
-            },
-        'cnn-class-med-no-skid': {
-            'dataset': 'base',
-            'split_strategy': 'no-negative-slip',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
-            'architecture': 'CNN',
-            'conv1_filters': 32,
-            'conv1_size': 5,
-            'conv2_filters': 64,
-            'conv2_size': 5,
-            'hidden_size': 256,
-            },
-        'cnn-class-small': {
-            'dataset': 'base',
-            'split_strategy': 'base',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
-            'architecture': 'CNN',
-            'conv1_filters': 16,
-            'conv1_size': 5,
-            'conv2_filters': 32,
-            'conv2_size': 5,
-            'hidden_size': 256,
-            },
-        'cnn-ordin-big': {
-            'dataset': 'base',
-            'split_strategy': 'base',
-            'task': 'OrdinalClassification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
-            'architecture': 'CNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            },
+        # 'cnn-class-big': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'task': 'Classification',
+        #     'task_options': {
+        #         'boundaries': np.linspace(0.005, 0.065, 7)
+        #         },
+        #     'architecture': 'CNN',
+        #     'conv1_filters': 64,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 128,
+        #     'conv2_size': 5,
+        #     'hidden_size': 512,
+        #     },
+        # 'cnn-class-med': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'task': 'Classification',
+        #     'task_options': {
+        #         'boundaries': np.linspace(0.005, 0.065, 7)
+        #         },
+        #     'architecture': 'CNN',
+        #     'conv1_filters': 32,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 64,
+        #     'conv2_size': 5,
+        #     'hidden_size': 256,
+        #     },
+        # 'cnn-class-med-no-skid': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'no-negative-slip',
+        #     'task': 'Classification',
+        #     'task_options': {
+        #         'boundaries': np.linspace(0.005, 0.065, 7)
+        #         },
+        #     'architecture': 'CNN',
+        #     'conv1_filters': 32,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 64,
+        #     'conv2_size': 5,
+        #     'hidden_size': 256,
+        #     },
+        # 'cnn-class-small': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'task': 'Classification',
+        #     'task_options': {
+        #         'boundaries': np.linspace(0.005, 0.065, 7)
+        #         },
+        #     'architecture': 'CNN',
+        #     'conv1_filters': 16,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 32,
+        #     'conv2_size': 5,
+        #     'hidden_size': 256,
+        #     },
+        # 'cnn-ordin-big': {
+        #     'dataset': 'base',
+        #     'split_strategy': 'base',
+        #     'task': 'OrdinalClassification',
+        #     'task_options': {
+        #         'boundaries': np.linspace(0.005, 0.065, 7)
+        #         },
+        #     'architecture': 'CNN',
+        #     'conv1_filters': 64,
+        #     'conv1_size': 5,
+        #     'conv2_filters': 128,
+        #     'conv2_size': 5,
+        #     'hidden_size': 512,
+        #     },
         # 'cnn-ordin-med': {
         #     'dataset': 'base',
         #     'split_strategy': 'base',

@@ -1,1 +1,1 @@
-from .cnn import RegressionCNN, ClassificationCNN, OrdinalClassificationCNN
+from .cnn import *
