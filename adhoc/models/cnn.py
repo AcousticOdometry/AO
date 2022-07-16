@@ -1,4 +1,4 @@
-from ao.models.base import (
+from models.base import (
     RegressionBase, ClassificationBase, OrdinalClassificationBase
     )
 
@@ -47,7 +47,7 @@ class RegressionCNN(RegressionBase):
         x = self._forward(x)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
-        return F.relu(self.fc2(x))
+        return self.fc2(x)
 
 
 class ClassificationUnnormalizedCNN(ClassificationBase):

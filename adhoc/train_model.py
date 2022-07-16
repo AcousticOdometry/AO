@@ -9,6 +9,8 @@ function.
 """
 import ao
 
+import models
+
 from gdrive import GDrive
 from wheel_test_bed_dataset import WheelTestBedDataset
 from upload_model import upload_model, upload_odometry
@@ -130,7 +132,7 @@ def _split_by_transform_and_devices(
 
 
 SPLIT_STRATEGIES = {
-    'base':
+    'train-with-laptop':
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None'],
@@ -154,14 +156,14 @@ SPLIT_STRATEGIES = {
             test_devices=[
                 'laptop-built-in-microphone', 'rode-smartlav-wheel-axis'
                 ],
-            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            val_devices=['rode-smartlav-top']
             ),
     'no-negative-slip':
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None'],
             train_split=1,
-            test_devices=[],
+            test_devices=['laptop-built-in-microphone'],
             val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
             filter_recordings=lambda r: any([
                 r['s'] == 'nan',
@@ -360,10 +362,13 @@ def train_model(
                 )]
         else:
             get_Vx = lambda pred: centers[int(pred.argmax(1).sum().item())]
+        learning_rate = 0.0001
     elif task == 'Regression':
         output_dim = 1
-        get_label = lambda sample: torch.tensor([sample['Vx']])
-        get_Vx = lambda pred: pred.item()
+        # ! Ugly hardcoded normalization
+        get_label = lambda sample: torch.tensor([sample['Vx'] * 10])
+        get_Vx = lambda pred: (pred.item()) / 10
+        learning_rate = 0.002
     else:
         raise NotImplementedError(f"{task = }")
     # Get dataset
@@ -383,7 +388,6 @@ def train_model(
         )
     config['split_strategy'] = split_strategy
     # Initialize model
-    learning_rate = 0.0001
     model = model_class(
         input_dim=dataset.input_dim,
         output_dim=output_dim,
@@ -400,7 +404,9 @@ def train_model(
         save_dir=LOCAL_MODELS_FOLDER, name=name
         )
     checkpoint_callback = ModelCheckpoint(
-        dirpath=logger.log_dir, save_top_k=2, monitor='val_MRPE'
+        dirpath=logger.log_dir,
+        save_last=True
+        # dirpath=logger.log_dir, save_top_k=2, monitor='val_MRPE', mode='min'
         )
     trainer = pl.Trainer(
         accelerator='auto',
