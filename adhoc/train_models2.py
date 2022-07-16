@@ -50,28 +50,24 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
-        'unnormalized-no-laptop-0': {
+        'unnormalized-3': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
             'conv2_filters': 128,
             'conv2_size': 5,
             'hidden_size': 512,
-            'seed': 0,
+            'seed': 3,
             },
         'unnormalized-no-laptop-1': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -83,10 +79,8 @@ if __name__ == '__main__':
         'unnormalized-no-laptop-2': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -98,10 +92,8 @@ if __name__ == '__main__':
         'unnormalized-no-laptop-7': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -113,10 +105,8 @@ if __name__ == '__main__':
         'unnormalized-no-laptop-8': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -128,10 +118,8 @@ if __name__ == '__main__':
         'unnormalized-no-laptop-9': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -143,10 +131,8 @@ if __name__ == '__main__':
         'unnormalized-no-laptop-42': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -167,8 +153,8 @@ if __name__ == '__main__':
                 models_folder=models_folder,
                 batch_size=args.batch_size,
                 gpus=[args.gpu],
-                min_epochs=10,
-                max_epochs=20,
+                min_epochs=20,
+                max_epochs=30,
                 **{
                     'seed': 1,
                     **kwargs

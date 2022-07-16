@@ -1,1 +1,1 @@
-from .cnn import *
+from . import classification, ordinal_classification, regression

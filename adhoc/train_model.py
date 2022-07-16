@@ -23,7 +23,6 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 
-from tqdm import tqdm
 from pathlib import Path
 from functools import partial
 from dotenv import load_dotenv
@@ -197,126 +196,14 @@ SPLIT_STRATEGIES = {
             ),
     }
 
-# Labeling
-
-
-def _bucketize_sample(sample: dict, boundaries: np.ndarray, var: str):
-    return torch.bucketize(
-        sample[var],
-        boundaries=boundaries,
-        )
-
-
-# Evaluation
-
-
-def _odometry_step(
-    batch,
-    model: pl.LightningModule,
-    get_Vx: callable,
-    ):
-    features = batch['features']
-    frame_duration = batch['frame_duration']
-    n_frames = features.shape[2]
-    segment_frames = model.hparams['input_dim'][2]
-    num_segments = int(n_frames - segment_frames)
-    features = torch.from_numpy(features[np.newaxis, :, :, :]
-                                ).float().to(model.device)
-    Vx = np.empty(num_segments)
-    for i in range(num_segments):
-        prediction = model(features[:, :, :, i:i + segment_frames])
-        Vx[i] = get_Vx(prediction)
-    start = batch['start_timestamp'] + frame_duration * (segment_frames - 1)
-    timestamps = np.linspace(
-        start,
-        start + num_segments * frame_duration,
-        num=num_segments,
-        endpoint=True,
-        )
-    Vx = pd.Series(Vx, index=timestamps)
-    odom = pd.concat([Vx, Vx.index.to_series().diff() * Vx], axis=1)
-    odom.columns = ['Vx', 'tx']
-    odom.iloc[0, :] = 0
-    odom['X'] = odom['tx'].cumsum()
-    return odom
-
-
-def _validation_step(
-    batch,
-    batch_idx,
-    model: pl.LightningModule,
-    get_Vx: callable,
-    ):
-    odom = _odometry_step(batch, model, get_Vx)
-    evaluation = ao.evaluate.odometry(
-        odom, batch['ground_truth'], delta_seconds=1
-        )
-    for col in evaluation.columns:
-        if 'RPE' in col:
-            model.log(
-                'val_MRPE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-        elif 'ATE' in col:
-            model.log(
-                'val_MATE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-
-
-def _test_step(
-    batch,
-    batch_idx,
-    model: pl.LightningModule,
-    get_Vx: callable,
-    log_dir: Optional[Path] = None,
-    ):
-    odom = _odometry_step(batch, model, get_Vx)
-    evaluation = ao.evaluate.odometry(
-        odom, batch['ground_truth'], delta_seconds=1
-        )
-    if log_dir:
-        folder = Path(log_dir) / batch['recording']
-        folder.mkdir(exist_ok=True)
-        odom.to_csv(
-            folder / batch['file'].replace('.wav', '.odometry.csv'),
-            index_label='timestamp',
-            )
-    for col in evaluation.columns:
-        if 'RPE' in col:
-            model.log(
-                'test_MRPE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-        elif 'ATE' in col:
-            model.log(
-                'test_MATE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-
 
 def train_model(
     name: str,
     dataset: str,
     split_strategy: str,
     models_folder: str,
+    task: str = 'classification',
     architecture: str = 'CNN',
-    task: str = 'Classification',
-    task_options: dict = {
-        'boundaries': np.linspace(0.005, 0.065, 7),
-        },
     batch_size: int = 32,
     gpus: Union[int, List[int]] = -1,
     seed: Optional[int] = 1,
@@ -329,9 +216,10 @@ def train_model(
         raise ValueError(f"Model {name} already exists in {models_folder}")
     # Initialize model
     config = {
-        'task': None,
+        'task': task,
         'split_strategy': split_strategy,
-        'architecture': architecture
+        'architecture': architecture,
+        'seed': seed,
         }
     if isinstance(seed, int):
         pl.seed_everything(seed, workers=True)
@@ -339,44 +227,14 @@ def train_model(
         SPLIT_RNG.seed(seed)
     else:
         dataset_rng = None
-    config['seed'] = seed
-    # Get a model for the task and architecture
-    model_class = getattr(ao.models, task + architecture)
-    # TODO Should this be in dataset?
-    config['task'] = task
-    if task.endswith('Classification'):
-        boundaries = task_options['boundaries']
-        centers = list((boundaries[1:] + boundaries[:-1]) / 2)
-        centers.insert(0, 2 * centers[0] - centers[1])
-        centers.append(2 * centers[-1] - centers[-2])
-        config['boundaries'] = boundaries.tolist()
-        output_dim = len(boundaries) + 1
-        get_label = partial(
-            _bucketize_sample,
-            boundaries=torch.from_numpy(boundaries),
-            var='Vx',
-            )
-        if task.startswith('Ordinal'):
-            get_Vx = lambda pred: centers[int(
-                max(((pred > 0.5).cumprod(axis=1).sum(axis=1) - 1).item(), 0)
-                )]
-        else:
-            get_Vx = lambda pred: centers[int(pred.argmax(1).sum().item())]
-        learning_rate = 0.0001
-    elif task == 'Regression':
-        output_dim = 1
-        # ! Ugly hardcoded normalization
-        get_label = lambda sample: torch.tensor([sample['Vx'] * 10])
-        get_Vx = lambda pred: (pred.item()) / 10
-        learning_rate = 0.002
-    else:
-        raise NotImplementedError(f"{task = }")
+    # Get a model class for the task and architecture
+    model_class = getattr(getattr(models, task), architecture)
+    config['class'] = model_class.__name__
     # Get dataset
     dataset = WheelTestBedDataset(
         dataset,
         split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
-        get_label=get_label,
         shuffle=10E3,
         rng=dataset_rng,
         )
@@ -386,19 +244,9 @@ def train_model(
         f"train samples: {n_samples}, "
         f"batches: {int(n_samples / dataset.batch_size)}"
         )
-    config['split_strategy'] = split_strategy
     # Initialize model
-    model = model_class(
-        input_dim=dataset.input_dim,
-        output_dim=output_dim,
-        lr=learning_rate,
-        **model_kwargs
-        )
-
-    model.validation_step = partial(
-        _validation_step, model=model, get_Vx=get_Vx
-        )
-    config['class'] = model_class.__name__
+    model = model_class(input_dim=dataset.input_dim, **model_kwargs)
+    dataset.get_label = model.get_label  # Override get_label method
     # Configure trainer and train
     logger = pl.loggers.TensorBoardLogger(
         save_dir=LOCAL_MODELS_FOLDER, name=name
@@ -426,9 +274,6 @@ def train_model(
         model = model_class.load_from_checkpoint(
             checkpoint_path=checkpoint_callback.best_model_path
             )
-    model.test_step = partial(
-        _test_step, model=model, get_Vx=get_Vx, log_dir=Path(logger.log_dir)
-        )
     if not trainer.interrupted:
         trainer.test(model, dataset)
     # Save model

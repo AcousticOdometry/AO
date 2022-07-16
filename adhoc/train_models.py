@@ -53,10 +53,8 @@ if __name__ == '__main__':
         'base': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'CNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -67,10 +65,8 @@ if __name__ == '__main__':
         'half-size': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'CNN',
             'conv1_filters': 32,
             'conv1_size': 5,
@@ -81,10 +77,8 @@ if __name__ == '__main__':
         'base-only-videomic': {
             'dataset': 'base',
             'split_strategy': 'only-videomic',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.065, 7)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
             'architecture': 'CNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -95,10 +89,8 @@ if __name__ == '__main__':
         'base-more-bins': {
             'dataset': 'base',
             'split_strategy': 'base',
-            'task': 'Classification',
-            'task_options': {
-                'boundaries': np.linspace(0.005, 0.075, 15)
-                },
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.075, 15),
             'architecture': 'CNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -109,10 +101,8 @@ if __name__ == '__main__':
         # 'cnn-class-med': {
         #     'dataset': 'base',
         #     'split_strategy': 'base',
-        #     'task': 'Classification',
-        #     'task_options': {
-        #         'boundaries': np.linspace(0.005, 0.065, 7)
-        #         },
+        #     'task': 'classification',
+        #         'boundaries': np.linspace(0.005, 0.065, 7),
         #     'architecture': 'CNN',
         #     'conv1_filters': 32,
         #     'conv1_size': 5,
@@ -123,10 +113,8 @@ if __name__ == '__main__':
         # 'cnn-class-med-no-skid': {
         #     'dataset': 'base',
         #     'split_strategy': 'no-negative-slip',
-        #     'task': 'Classification',
-        #     'task_options': {
-        #         'boundaries': np.linspace(0.005, 0.065, 7)
-        #         },
+        #     'task': 'classification',
+        #         'boundaries': np.linspace(0.005, 0.065, 7),
         #     'architecture': 'CNN',
         #     'conv1_filters': 32,
         #     'conv1_size': 5,
@@ -137,10 +125,8 @@ if __name__ == '__main__':
         # 'cnn-class-small': {
         #     'dataset': 'base',
         #     'split_strategy': 'base',
-        #     'task': 'Classification',
-        #     'task_options': {
-        #         'boundaries': np.linspace(0.005, 0.065, 7)
-        #         },
+        #     'task': 'classification',
+        #         'boundaries': np.linspace(0.005, 0.065, 7),
         #     'architecture': 'CNN',
         #     'conv1_filters': 16,
         #     'conv1_size': 5,
@@ -151,10 +137,8 @@ if __name__ == '__main__':
         # 'cnn-ordin-big': {
         #     'dataset': 'base',
         #     'split_strategy': 'base',
-        #     'task': 'OrdinalClassification',
-        #     'task_options': {
-        #         'boundaries': np.linspace(0.005, 0.065, 7)
-        #         },
+        #     'task': 'ordinal_classification',
+        #         'boundaries': np.linspace(0.005, 0.065, 7),
         #     'architecture': 'CNN',
         #     'conv1_filters': 64,
         #     'conv1_size': 5,
@@ -165,10 +149,8 @@ if __name__ == '__main__':
         # 'cnn-ordin-med': {
         #     'dataset': 'base',
         #     'split_strategy': 'base',
-        #     'task': 'OrdinalClassification',
-        #     'task_options': {
-        #         'boundaries': np.linspace(0.005, 0.065, 7)
-        #         },
+        #     'task': 'ordinal_classification',
+        #         'boundaries': np.linspace(0.005, 0.065, 7),
         #     'architecture': 'CNN',
         #     'conv1_filters': 32,
         #     'conv1_size': 5,

@@ -53,7 +53,7 @@ if __name__ == '__main__':
         'regression': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Regression',
+            'task': 'regression',
             'architecture': 'CNN',
             'conv1_filters': 64,
             'conv1_size': 5,
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         'regression-half-size': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Regression',
+            'task': 'regression',
             'architecture': 'CNN',
             'conv1_filters': 32,
             'conv1_size': 5,
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         'regression-quarter-size': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'Regression',
+            'task': 'regression',
             'architecture': 'CNN',
             'conv1_filters': 16,
             'conv1_size': 5,
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         'regression-only-videomic': {
             'dataset': 'base',
             'split_strategy': 'only-videomic',
-            'task': 'Regression',
+            'task': 'regression',
             'architecture': 'CNN',
             'conv1_filters': 64,
             'conv1_size': 5,
