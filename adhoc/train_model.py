@@ -253,8 +253,10 @@ def train_model(
         )
     checkpoint_callback = ModelCheckpoint(
         dirpath=logger.log_dir,
-        save_last=True
-        # dirpath=logger.log_dir, save_top_k=2, monitor='val_MRPE', mode='min'
+        # save_last=True
+        save_top_k=2,
+        monitor='val_MRPE',
+        mode='min',
         )
     trainer = pl.Trainer(
         accelerator='auto',

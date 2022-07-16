@@ -32,11 +32,16 @@ class AcousticOdometryBase(pl.LightningModule):
         metrics = self._shared_eval_step(batch, batch_idx)
         self.log_dict(
             {f"train_{k}": v
-             for k, v in metrics.items() if k != 'loss'},
+             for k, v in metrics.items() if 'loss' not in k},
             on_epoch=True,
             on_step=False,
             )
-        self.log('train_loss', metrics['loss'], on_epoch=True, on_step=True)
+        self.log_dict(
+            {f"train_{k}": v
+             for k, v in metrics.items() if 'loss' in k},
+            on_epoch=True,
+            on_step=True,
+            )
         return metrics['loss']
 
     def _odometry_step(

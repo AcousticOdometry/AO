@@ -49,50 +49,34 @@ if __name__ == '__main__':
     models_folder = os.environ['MODELS_FOLDER']
     datasets_folder = os.environ['DATASETS_FOLDER']
 
+    # models_to_train = {}
+    # for seed in range(10, 15):
+    #     models_to_train[f'unnormalized-{seed}'] = {
+    #         'dataset': 'base',
+    #         'split_strategy': 'no-laptop',
+    #         'task': 'classification',
+    #         'boundaries': np.linspace(0.005, 0.065, 7),
+    #         'architecture': 'UnnormalizedCNN',
+    #         'conv1_filters': 64,
+    #         'conv1_size': 5,
+    #         'conv2_filters': 128,
+    #         'conv2_size': 5,
+    #         'hidden_size': 512,
+    #         'seed': seed,
+    #         }
     models_to_train = {
-        'regression': {
+        'base': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
-            'task': 'regression',
-            'architecture': 'CNN',
+            'task': 'classification',
+            'boundaries': np.linspace(0.005, 0.065, 7),
+            'architecture': 'UnnormalizedCNN',
             'conv1_filters': 64,
             'conv1_size': 5,
             'conv2_filters': 128,
             'conv2_size': 5,
             'hidden_size': 512,
-            },
-        'regression-half-size': {
-            'dataset': 'base',
-            'split_strategy': 'no-laptop',
-            'task': 'regression',
-            'architecture': 'CNN',
-            'conv1_filters': 32,
-            'conv1_size': 5,
-            'conv2_filters': 64,
-            'conv2_size': 5,
-            'hidden_size': 256,
-            },
-        'regression-quarter-size': {
-            'dataset': 'base',
-            'split_strategy': 'no-laptop',
-            'task': 'regression',
-            'architecture': 'CNN',
-            'conv1_filters': 16,
-            'conv1_size': 5,
-            'conv2_filters': 32,
-            'conv2_size': 5,
-            'hidden_size': 256,
-            },
-        'regression-only-videomic': {
-            'dataset': 'base',
-            'split_strategy': 'only-videomic',
-            'task': 'regression',
-            'architecture': 'CNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
+            'seed': 11,
             },
         }
     for name, kwargs in models_to_train.items():
@@ -106,9 +90,9 @@ if __name__ == '__main__':
                 models_folder=models_folder,
                 batch_size=args.batch_size,
                 gpus=[args.gpu],
-                min_epochs=10,
-                max_epochs=20,
                 **{
+                    'min_epochs': 50,
+                    'max_epochs': 100,
                     'seed': 1,
                     **kwargs
                     }

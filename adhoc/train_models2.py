@@ -50,96 +50,24 @@ if __name__ == '__main__':
     datasets_folder = os.environ['DATASETS_FOLDER']
 
     models_to_train = {
-        'unnormalized-3': {
+        'physics-informed': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
             'task': 'classification',
-            'boundaries': np.linspace(0.005, 0.065, 7),
-            'architecture': 'UnnormalizedCNN',
+            'architecture': 'UnnormalizedInformedCNN',
             'conv1_filters': 64,
-            'conv1_size': 5,
             'conv2_filters': 128,
-            'conv2_size': 5,
             'hidden_size': 512,
-            'seed': 3,
+            'seed': 11,
             },
-        'unnormalized-no-laptop-1': {
+        'squeeze-net': {
             'dataset': 'base',
             'split_strategy': 'no-laptop',
             'task': 'classification',
             'boundaries': np.linspace(0.005, 0.065, 7),
-            'architecture': 'UnnormalizedCNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            'seed': 1,
-            },
-        'unnormalized-no-laptop-2': {
-            'dataset': 'base',
-            'split_strategy': 'no-laptop',
-            'task': 'classification',
-            'boundaries': np.linspace(0.005, 0.065, 7),
-            'architecture': 'UnnormalizedCNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            'seed': 1,
-            },
-        'unnormalized-no-laptop-7': {
-            'dataset': 'base',
-            'split_strategy': 'no-laptop',
-            'task': 'classification',
-            'boundaries': np.linspace(0.005, 0.065, 7),
-            'architecture': 'UnnormalizedCNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            'seed': 7,
-            },
-        'unnormalized-no-laptop-8': {
-            'dataset': 'base',
-            'split_strategy': 'no-laptop',
-            'task': 'classification',
-            'boundaries': np.linspace(0.005, 0.065, 7),
-            'architecture': 'UnnormalizedCNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            'seed': 8,
-            },
-        'unnormalized-no-laptop-9': {
-            'dataset': 'base',
-            'split_strategy': 'no-laptop',
-            'task': 'classification',
-            'boundaries': np.linspace(0.005, 0.065, 7),
-            'architecture': 'UnnormalizedCNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            'seed': 9,
-            },
-        'unnormalized-no-laptop-42': {
-            'dataset': 'base',
-            'split_strategy': 'no-laptop',
-            'task': 'classification',
-            'boundaries': np.linspace(0.005, 0.065, 7),
-            'architecture': 'UnnormalizedCNN',
-            'conv1_filters': 64,
-            'conv1_size': 5,
-            'conv2_filters': 128,
-            'conv2_size': 5,
-            'hidden_size': 512,
-            'seed': 42,
+            'architecture': 'SqueezeNet',
+            'seed': 11,
+            'min_epochs': 30,
             },
         }
     for name, kwargs in models_to_train.items():
@@ -153,9 +81,9 @@ if __name__ == '__main__':
                 models_folder=models_folder,
                 batch_size=args.batch_size,
                 gpus=[args.gpu],
-                min_epochs=20,
-                max_epochs=30,
                 **{
+                    'min_epochs': 50,
+                    'max_epochs': 100,
                     'seed': 1,
                     **kwargs
                     }
@@ -166,4 +94,5 @@ if __name__ == '__main__':
                     )
                 break
         except ValueError as e:
-            warn(f"Skip model {name}: {e}")
+            raise e
+            # warn(f"Skip model {name}: {e}")
