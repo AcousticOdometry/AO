@@ -9,8 +9,11 @@ function.
 """
 import ao
 
+import models
+
 from gdrive import GDrive
 from wheel_test_bed_dataset import WheelTestBedDataset
+from upload_model import upload_model, upload_odometry
 
 import os
 import torch
@@ -20,15 +23,14 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 
-from tqdm import tqdm
 from pathlib import Path
 from functools import partial
 from dotenv import load_dotenv
 from typing import List, Optional, Union, Callable
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
-CACHE_FOLDER = Path(__file__).parent.parent / 'models'
-CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
+LOCAL_MODELS_FOLDER = Path(__file__).parent.parent / 'models'
+LOCAL_MODELS_FOLDER.mkdir(parents=True, exist_ok=True)
 
 # Utils
 
@@ -63,8 +65,8 @@ def save_model(
     evaluation_folder: Optional[str] = None,
     ):
     # Handle model first
-    folder_id = GDrive.get_folder_id(models_folder)
-    if folder_id:
+    models_folder_id = GDrive.get_folder_id(models_folder)
+    if models_folder_id:
         model_folder = Path(logger.log_dir)
     else:
         model_folder = Path(models_folder) / logger.name
@@ -81,54 +83,15 @@ def save_model(
         model_folder / f"train_data.csv", index_label='index'
         )
     # Upload to Google Drive if needed
-    if folder_id:
-        # Create model folder
-        gdrive = GDrive()
-        upload_to = gdrive.create_folder(logger.name, folder_id)
-        upload_to.Upload()
-        # Upload all files
-        for f in tqdm([f for f in model_folder.iterdir() if f.is_file()],
-                      desc='Upload model',
-                      unit='file'):
-            gdrive_file = gdrive.create_file(f.name, upload_to['id'])
-            gdrive_file.SetContentFile(str(f))
-            gdrive_file.Upload()
+    if models_folder_id:
+        upload_model(model_folder, models_folder_id)
     # Handle odometry data
     if not evaluation_folder:
         return
-    folder_id = GDrive.get_folder_id(evaluation_folder)
-    if not folder_id:
+    evaluation_folder_id = GDrive.get_folder_id(evaluation_folder)
+    if not evaluation_folder_id:
         raise NotImplementedError('Save odometry to local evaluation folder')
-    gdrive = GDrive()
-    # For every evaluation found in log_dir
-    evaluations = [f for f in Path(logger.log_dir).iterdir() if f.is_dir()]
-    for evaluation in tqdm(evaluations, desc='Upload odometry', unit='folder'):
-        # Go to evaluation_folder / evaluation.name
-        for recording in gdrive.list_folder(folder_id):
-            if recording['title'] == evaluation.name:
-                break
-        else:
-            raise RuntimeError(f"Recording {evaluation.name} not found")
-        # Go to evaluation_folder / subdirectory.name / AO
-        for ao_folder in gdrive.list_folder(recording['id']):
-            if ao_folder['title'] == 'AO':
-                break
-        else:
-            ao_folder = gdrive.create_folder('AO', recording['id'])
-            ao_folder.Upload()
-        #  Make logger.name folder, delete existing one if there is
-        for _folder in gdrive.list_folder(ao_folder['id']):
-            if _folder['title'] == logger.name:
-                _folder.Trash()
-        upload_to = gdrive.create_folder(logger.name, ao_folder['id'])
-        upload_to.Upload()
-        # Upload evaluation contents into logger.name folder
-        for f in tqdm([f for f in evaluation.iterdir() if f.is_file()],
-                      desc=evaluation.name,
-                      unit='file'):
-            gdrive_file = gdrive.create_file(f.name, upload_to['id'])
-            gdrive_file.SetContentFile(str(f))
-            gdrive_file.Upload()
+    upload_odometry(model_folder, evaluation_folder_id)
 
 
 # Splitting
@@ -168,7 +131,7 @@ def _split_by_transform_and_devices(
 
 
 SPLIT_STRATEGIES = {
-    'base':
+    'train-with-laptop':
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None'],
@@ -192,14 +155,14 @@ SPLIT_STRATEGIES = {
             test_devices=[
                 'laptop-built-in-microphone', 'rode-smartlav-wheel-axis'
                 ],
-            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            val_devices=['rode-smartlav-top']
             ),
     'no-negative-slip':
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None'],
             train_split=1,
-            test_devices=[],
+            test_devices=['laptop-built-in-microphone'],
             val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top'],
             filter_recordings=lambda r: any([
                 r['s'] == 'nan',
@@ -233,126 +196,14 @@ SPLIT_STRATEGIES = {
             ),
     }
 
-# Labeling
-
-
-def _bucketize_sample(sample: dict, boundaries: np.ndarray, var: str):
-    return torch.bucketize(
-        sample[var],
-        boundaries=boundaries,
-        )
-
-
-# Evaluation
-
-
-def _odometry_step(
-    batch,
-    model: pl.LightningModule,
-    get_Vx: callable,
-    ):
-    features = batch['features']
-    frame_duration = batch['frame_duration']
-    n_frames = features.shape[2]
-    segment_frames = model.hparams['input_dim'][2]
-    num_segments = int(n_frames - segment_frames)
-    features = torch.from_numpy(features[np.newaxis, :, :, :]
-                                ).float().to(model.device)
-    Vx = np.empty(num_segments)
-    for i in range(num_segments):
-        prediction = model(features[:, :, :, i:i + segment_frames])
-        Vx[i] = get_Vx(prediction)
-    start = batch['start_timestamp'] + frame_duration * (segment_frames - 1)
-    timestamps = np.linspace(
-        start,
-        start + num_segments * frame_duration,
-        num=num_segments,
-        endpoint=True,
-        )
-    Vx = pd.Series(Vx, index=timestamps)
-    odom = pd.concat([Vx, Vx.index.to_series().diff() * Vx], axis=1)
-    odom.columns = ['Vx', 'tx']
-    odom.iloc[0, :] = 0
-    odom['X'] = odom['tx'].cumsum()
-    return odom
-
-
-def _validation_step(
-    batch,
-    batch_idx,
-    model: pl.LightningModule,
-    get_Vx: callable,
-    ):
-    odom = _odometry_step(batch, model, get_Vx)
-    evaluation = ao.evaluate.odometry(
-        odom, batch['ground_truth'], delta_seconds=1
-        )
-    for col in evaluation.columns:
-        if 'RPE' in col:
-            model.log(
-                'val_MRPE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-        elif 'ATE' in col:
-            model.log(
-                'val_MATE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-
-
-def _test_step(
-    batch,
-    batch_idx,
-    model: pl.LightningModule,
-    get_Vx: callable,
-    log_dir: Optional[Path] = None,
-    ):
-    odom = _odometry_step(batch, model, get_Vx)
-    evaluation = ao.evaluate.odometry(
-        odom, batch['ground_truth'], delta_seconds=1
-        )
-    if log_dir:
-        folder = Path(log_dir) / batch['recording']
-        folder.mkdir(exist_ok=True)
-        odom.to_csv(
-            folder / batch['file'].replace('.wav', '.odometry.csv'),
-            index_label='timestamp',
-            )
-    for col in evaluation.columns:
-        if 'RPE' in col:
-            model.log(
-                'test_MRPE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-        elif 'ATE' in col:
-            model.log(
-                'test_MATE',
-                evaluation[col].mean(),
-                batch_size=1,
-                on_step=True,
-                on_epoch=True
-                )
-
 
 def train_model(
     name: str,
     dataset: str,
     split_strategy: str,
     models_folder: str,
+    task: str = 'classification',
     architecture: str = 'CNN',
-    task: str = 'Classification',
-    task_options: dict = {
-        'boundaries': np.linspace(0.005, 0.065, 7),
-        },
     batch_size: int = 32,
     gpus: Union[int, List[int]] = -1,
     seed: Optional[int] = 1,
@@ -365,9 +216,10 @@ def train_model(
         raise ValueError(f"Model {name} already exists in {models_folder}")
     # Initialize model
     config = {
-        'task': None,
+        'task': task,
         'split_strategy': split_strategy,
-        'architecture': architecture
+        'architecture': architecture,
+        'seed': seed,
         }
     if isinstance(seed, int):
         pl.seed_everything(seed, workers=True)
@@ -375,41 +227,14 @@ def train_model(
         SPLIT_RNG.seed(seed)
     else:
         dataset_rng = None
-    config['seed'] = seed
-    # Get a model for the task and architecture
-    model_class = getattr(ao.models, task + architecture)
-    # TODO Should this be in dataset?
-    config['task'] = task
-    if task.endswith('Classification'):
-        boundaries = task_options['boundaries']
-        centers = list((boundaries[1:] + boundaries[:-1]) / 2)
-        centers.insert(0, 2 * centers[0] - centers[1])
-        centers.append(2 * centers[-1] - centers[-2])
-        config['boundaries'] = boundaries.tolist()
-        output_dim = len(boundaries) + 1
-        get_label = partial(
-            _bucketize_sample,
-            boundaries=torch.from_numpy(boundaries),
-            var='Vx',
-            )
-        if task.startswith('Ordinal'):
-            get_Vx = lambda pred: centers[int(
-                max(((pred > 0.5).cumprod(axis=1).sum(axis=1) - 1).item(), 0)
-                )]
-        else:
-            get_Vx = lambda pred: centers[int(pred.argmax(1).sum().item())]
-    elif task == 'Regression':
-        output_dim = 1
-        get_label = lambda sample: torch.tensor([sample['Vx']])
-        get_Vx = lambda pred: pred.item()
-    else:
-        raise NotImplementedError
+    # Get a model class for the task and architecture
+    model_class = getattr(getattr(models, task), architecture)
+    config['class'] = model_class.__name__
     # Get dataset
     dataset = WheelTestBedDataset(
         dataset,
         split_data=SPLIT_STRATEGIES[split_strategy],
         batch_size=batch_size,
-        get_label=get_label,
         shuffle=10E3,
         rng=dataset_rng,
         )
@@ -419,24 +244,19 @@ def train_model(
         f"train samples: {n_samples}, "
         f"batches: {int(n_samples / dataset.batch_size)}"
         )
-    config['split_strategy'] = split_strategy
     # Initialize model
-    learning_rate = 0.0001
-    model = model_class(
-        input_dim=dataset.input_dim,
-        output_dim=output_dim,
-        lr=learning_rate,
-        **model_kwargs
-        )
-
-    model.validation_step = partial(
-        _validation_step, model=model, get_Vx=get_Vx
-        )
-    config['class'] = model_class.__name__
+    model = model_class(input_dim=dataset.input_dim, **model_kwargs)
+    dataset.get_label = model.get_label  # Override get_label method
     # Configure trainer and train
-    logger = pl.loggers.TensorBoardLogger(save_dir=CACHE_FOLDER, name=name)
+    logger = pl.loggers.TensorBoardLogger(
+        save_dir=LOCAL_MODELS_FOLDER, name=name
+        )
     checkpoint_callback = ModelCheckpoint(
-        dirpath=logger.log_dir, save_top_k=2, monitor='val_MRPE'
+        dirpath=logger.log_dir,
+        # save_last=True
+        save_top_k=2,
+        monitor='val_MRPE',
+        mode='min',
         )
     trainer = pl.Trainer(
         accelerator='auto',
@@ -451,14 +271,11 @@ def train_model(
             ],
         )
     trainer.fit(model, dataset)
-    # TODO this could be a separate function
+    # TODO this could be a separate script test_model.pt
     if checkpoint_callback.best_model_path:
         model = model_class.load_from_checkpoint(
             checkpoint_path=checkpoint_callback.best_model_path
             )
-    model.test_step = partial(
-        _test_step, model=model, get_Vx=get_Vx, log_dir=Path(logger.log_dir)
-        )
     if not trainer.interrupted:
         trainer.test(model, dataset)
     # Save model

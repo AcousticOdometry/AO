@@ -137,13 +137,16 @@ def _decode_npy(_bytes):
 
 class RecordingsDataset(torch.utils.data.IterableDataset):
 
-    def __init__(self, recordings: List[Path], config: dict):
+    def __init__(
+        self,
+        recordings: List[Path],
+        config: dict,
+        file_filter: Callable[[dict], bool] = lambda device_config: True,
+        ):
         super().__init__()
-        self.config = config
         self.recordings = recordings
-
-    def __len__(self):
-        return sum([len(r.glob('*.wav')) for r in self.recordings])
+        self.config = config
+        self.file_filter = file_filter
 
     def __iter__(self):
         for recording in self.recordings:
@@ -152,6 +155,8 @@ class RecordingsDataset(torch.utils.data.IterableDataset):
                 )
             for wav_file in sorted(recording.glob('*.wav')):
                 file_config = ao.io.yaml_load(wav_file.with_suffix('.yaml'))
+                if not self.file_filter(file_config):
+                    continue
                 yield {
                     'recording': recording.name,
                     'file': wav_file.name,
@@ -278,6 +283,8 @@ class WheelTestBedDataset(pl.LightningDataModule):
             r for r in self.evaluation_folder.iterdir() if r.is_dir()
             ])
         self.val_recordings = self.test_recordings[0:1]
+        # ? Input parameter ?
+        self.val_file_filter = lambda device: 'VideoMic' in device['name']
 
     @property
     def input_dim(self):
@@ -318,7 +325,9 @@ class WheelTestBedDataset(pl.LightningDataModule):
         return self.get_dataloader(self.train_indices)
 
     def val_dataloader(self):
-        return RecordingsDataset(self.val_recordings, self.config)
+        return RecordingsDataset(
+            self.val_recordings, self.config, self.val_file_filter
+            )
 
     def test_dataloader(self):
         return RecordingsDataset(self.test_recordings, self.config)
