@@ -1,6 +1,6 @@
 {
     "name": "ao",
-    "version-string": "0.0.4",
+    "version-string": "0.0.5",
     "description": "Acoustic Odometry library",
     "dependencies": [
         "pybind11",
