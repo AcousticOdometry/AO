@@ -1,7 +1,8 @@
 from .base import AcousticOdometryBase
 
-import numpy as np
 import torchvision
+import numpy as np
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -258,11 +259,55 @@ class UnnormalizedInformedCNN(AcousticOdometryBase):
             'acc_s': accuracy(s, y[:, 1]),
             }
 
+    def _odometry_step(
+        self,
+        batch,
+        ):
+        features = batch['features']
+        frame_duration = batch['frame_duration']
+        n_frames = features.shape[2]
+        segment_frames = self.hparams['input_dim'][2]
+        num_segments = int(n_frames - segment_frames)
+        features = torch.from_numpy(features[np.newaxis, :, :, :]
+                                    ).float().to(self.device)
+        Vw = np.empty(num_segments)
+        slip = np.empty(num_segments)
+        for i in range(num_segments):
+            prediction = self(features[:, :, :, i:i + segment_frames])
+            Vw[i] = self.get_Vw(prediction)
+            slip[i] = self.get_slip(prediction)
+        start = batch['start_timestamp'
+                      ] + frame_duration * (segment_frames - 1)
+        timestamps = np.linspace(
+            start,
+            start + num_segments * frame_duration,
+            num=num_segments,
+            endpoint=True,
+            )
+        odom = pd.DataFrame({'Vw': Vw, 'slip': slip}, index=timestamps)
+        odom['Vx'] = odom['Vw'] * self.wheel_radius * (1 - odom['slip'])
+        skid = odom['slip'] < 0
+        odom.loc[skid, 'Vx'] = (
+            odom.loc[skid, 'Vw'] * self.wheel_radius /
+            (1 + odom.loc[skid, 'slip'])
+            )
+        odom['tx'] = odom.index.to_series().diff() * odom['Vx']
+        odom.iloc[0, :] = 0
+        odom['X'] = odom['tx'].cumsum()
+        return odom
+
+    def get_Vw(self, prediction: torch.tensor) -> float:
+        w = prediction[0]
+        return self.w_centers[int(w.argmax(dim=1).sum().item())]
+
+    def get_slip(self, prediction: torch.tensor) -> float:
+        s = prediction[1]
+        return self.s_centers[int(s.argmax(dim=1).sum().item())]
+
     def get_Vx(self, prediction: torch.tensor) -> float:
-        w, s = prediction
-        w = self.w_centers[int(w.argmax(dim=1).sum().item())]
-        s = self.s_centers[int(s.argmax(dim=1).sum().item())]
-        if s < 0:
+        w = self.get_Vw(prediction)
+        s = self.get_slip(prediction)
+        if s > 0:
             return w * self.wheel_radius * (1 - s)
         return w * self.wheel_radius / (1 + s)
 

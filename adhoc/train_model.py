@@ -131,7 +131,7 @@ def _split_by_transform_and_devices(
 
 
 SPLIT_STRATEGIES = {
-    'train-with-laptop':
+    'with-laptop':
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None'],
@@ -174,7 +174,7 @@ SPLIT_STRATEGIES = {
         partial(
             _split_by_transform_and_devices,
             use_transforms=['None'],
-            train_split=0.8,
+            train_split=1,
             test_devices=[],
             val_devices=[],
             ),
@@ -183,7 +183,15 @@ SPLIT_STRATEGIES = {
             _split_by_transform_and_devices,
             use_transforms=['None', 'add-random-snr-noise'],
             train_split=1,
-            test_devices=[],
+            test_devices=['laptop-built-in-microphone'],
+            val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
+            ),
+    'with-gain':
+        partial(
+            _split_by_transform_and_devices,
+            use_transforms=['None', 'add-random-gain'],
+            train_split=1,
+            test_devices=['laptop-built-in-microphone'],
             val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
             ),
     'all-transforms':
@@ -191,7 +199,7 @@ SPLIT_STRATEGIES = {
             _split_by_transform_and_devices,
             use_transforms=None,
             train_split=1,
-            test_devices=[],
+            test_devices=['laptop-built-in-microphone'],
             val_devices=['rode-videomic-ntg-top', 'rode-smartlav-top']
             ),
     }
@@ -209,6 +217,7 @@ def train_model(
     seed: Optional[int] = 1,
     min_epochs: int = 10,
     max_epochs: int = 20,
+    trainer_kwargs: dict = {},
     **model_kwargs,
     ) -> pl.Trainer:
     # Check if model already exists
@@ -221,6 +230,15 @@ def train_model(
         'architecture': architecture,
         'seed': seed,
         }
+    # Store model keyword arguments in config
+    for k, v in model_kwargs.items():
+        if isinstance(v, np.ndarray):
+            config[k] = v.tolist()
+        elif isinstance(v, tuple):
+            config[k] = list(v)
+        else:
+            config[k] = v
+    # Set seed
     if isinstance(seed, int):
         pl.seed_everything(seed, workers=True)
         dataset_rng = random.Random(seed)
@@ -245,6 +263,7 @@ def train_model(
         f"batches: {int(n_samples / dataset.batch_size)}"
         )
     # Initialize model
+    config['input_dim'] = dataset.input_dim
     model = model_class(input_dim=dataset.input_dim, **model_kwargs)
     dataset.get_label = model.get_label  # Override get_label method
     # Configure trainer and train
@@ -264,11 +283,17 @@ def train_model(
         max_epochs=max_epochs,
         logger=logger,
         gpus=gpus,
-        num_sanity_val_steps=0,
+        # num_sanity_val_steps=0,
         deterministic=True if seed else False,
         callbacks=[
-            EarlyStopping(monitor='val_MRPE', mode='min'), checkpoint_callback
+            EarlyStopping(
+                monitor='val_MRPE',
+                mode='min',
+                check_on_train_epoch_end=False,
+                ),
+            checkpoint_callback,
             ],
+        **trainer_kwargs,
         )
     trainer.fit(model, dataset)
     # TODO this could be a separate script test_model.pt
