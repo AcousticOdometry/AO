@@ -6,6 +6,7 @@ gdrive_credentials.json
 /models/
 /datasets/
 /evaluation/
+/results/
 
 /_*/
 

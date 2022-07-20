@@ -3,7 +3,6 @@ import pandas as pd
 
 from typing import Union, List, Tuple, Optional
 
-from matplotlib.colors import to_rgba
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
@@ -65,6 +64,7 @@ def odometry_comparison(
     ax_speed: Optional[plt.Axes] = None,
     ax_position: Optional[plt.Axes] = None,
     suptitle: Optional[str] = None,
+    show_legend: bool = True,
     **subplots_kwargs,
     ) -> Tuple[plt.Figure, List[plt.Axes]]:
     # Check plots input
@@ -103,12 +103,13 @@ def odometry_comparison(
     if suptitle:
         fig.suptitle(suptitle)
     # Add legend
-    fig.legend(
-        *(ax_speed if ax_speed else ax_position).get_legend_handles_labels(),
-        bbox_to_anchor=(0.5, 0),
-        loc='upper center'
-        )
-    fig.tight_layout()
+    if show_legend:
+        fig.legend(
+            *(ax_speed
+              if ax_speed else ax_position).get_legend_handles_labels(),
+            bbox_to_anchor=(0.5, 0),
+            loc='upper center'
+            )
     return fig, (ax_speed, ax_position)
 
 
@@ -117,7 +118,9 @@ def evaluation(
     ground_truth: Optional[pd.DataFrame] = None,
     evaluate_kwargs: dict = {},
     *,
+    fig: Optional[plt.Figure] = None,
     axs: Optional[List[plt.Axes]] = None,
+    show_only: Optional[List[str]] = ['RPE', 'APE'],
     show_mean_on: List[str] = ['ATE', 'RPE'],
     **plot_kwargs,
     ) -> Tuple[plt.Figure, plt.Axes]:
@@ -130,30 +133,42 @@ def evaluation(
         evaluation = ao.evaluate.odometry(
             data, ground_truth, **evaluate_kwargs
             )
+    if show_only:
+        evaluation_columns = [
+            col for col in evaluation.columns if col in show_only
+            ]
+    else:
+        evaluation_columns = evaluation.columns
     if axs is None:
-        fig, axs = plt.subplots(1, len(evaluation.columns))
-    if len(axs) != len(evaluation.columns):
+        if fig is None:
+            fig, axs = plt.subplots(1, len(evaluation_columns))
+        else:
+            axs = fig.subplots(1, len(evaluation_columns))
+    else:
+        fig = axs[0].get_figure()
+    if len(axs) != len(evaluation_columns):
         raise ValueError(
             "`axs` must be a list of axes of the same length as the provided "
-            f"`evaluation` columns: {len(axs)} != len({evaluation.columns})"
+            f"`evaluation` columns: {len(axs)} != len({evaluation_columns})"
             )
-    fig = axs[0].get_figure()
-    for ax, col in zip(axs, evaluation.columns):
+    for ax, col in zip(axs, evaluation_columns):
         ax.set_title(col)
         line = ax.plot(
             evaluation.index.to_numpy(), evaluation[col].to_numpy(),
             **plot_kwargs
             )[0]
-        if any([c in col for c in show_mean_on]):
+        if col in show_mean_on:
             ax.axhline(
                 evaluation[col].mean(),
                 color=line.get_color(),
                 **{
-                    **plot_kwargs, 'ls': '--',
-                    'label': None
+                    **{k: v
+                       for k, v in plot_kwargs.items() if k != 'color'},
+                    'ls': '--',
+                    'label': None,
                     }
                 )
-        ax.set_ylabel('Error [m]')
+        ax.set_ylabel(f"Error [{evaluation.attrs['unit'][col]}]")
     return fig, axs
 
 
@@ -162,21 +177,25 @@ def evaluation_comparison(
     ground_truth: Optional[pd.DataFrame] = None,
     evaluate_kwargs: dict = {},
     *,
+    fig: Optional[plt.Figure] = None,
     axs: Optional[List[plt.Axes]] = None,
     suptitle: Optional[str] = None,
-    ):
+    show_legend: bool = True,
+    ) -> Tuple[plt.Figure, List[plt.Axes]]:
     # Check plots input
     plots = _process_plots_input(plots)
     # Check X axis limits
     start_timestamp = min([odom.index.min() for odom, _ in plots])
     end_timestamp = max([odom.index.max() for odom, _ in plots])
     # Plot
-    for data, plot_kwargs in plots:
+    for i, (data, plot_kwargs) in enumerate(plots):
         fig, axs = evaluation(
             data,
             ground_truth,
             evaluate_kwargs=evaluate_kwargs,
+            fig=fig,
             axs=axs,
+            color=f"C{(i + 1) % 10}",  # Skip the first color
             **plot_kwargs
             )
     # Format X axis
@@ -186,10 +205,10 @@ def evaluation_comparison(
     if suptitle:
         fig.suptitle(suptitle)
     # Add legend
-    fig.legend(
-        *axs[0].get_legend_handles_labels(),
-        bbox_to_anchor=(0.5, 0),
-        loc='upper center'
-        )
-    fig.tight_layout()
+    if show_legend:
+        fig.legend(
+            *axs[0].get_legend_handles_labels(),
+            bbox_to_anchor=(0.5, 0),
+            loc='upper center'
+            )
     return fig, axs

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 def generate_wheel_odometry(
     measurements: pd.Series,
     wheel_radius: float,
@@ -62,16 +63,32 @@ def odometry(
     sync_gt_tx = np.interp(ts, gt_ts, ground_truth['tx'].to_numpy())
     sync_gt_X = np.interp(ts, gt_ts, ground_truth['X'].to_numpy())
     evaluation = pd.DataFrame(index=ts)
-    evaluation[
-        "Absolute Translation Error (ATE)\n"
+    # ! Hacky way to provide additional info in column names
+    evaluation.attrs['description'] = {}
+    evaluation.attrs['unit'] = {}
+    # Absolute Translation Error
+    evaluation['ATE'] = np.absolute(sync_gt_tx - odom['tx'].to_numpy())
+    evaluation.attrs['description']['ATE'] = (
+        "Absolute Translation Error \n"
         f"{odom.index.to_series().diff().mean():.3f}s between estimations"
-        ] = np.absolute(sync_gt_tx - odom['tx'].to_numpy())
+        )
+    evaluation.attrs['unit']['ATE'] = 'm'
+    # Relative Position Error
     rel_X = odom['X'] - np.interp(ts - delta_seconds, ts, odom['X'])
     sync_gt_rel_X = sync_gt_X - np.interp(ts - delta_seconds, ts, sync_gt_X)
-    evaluation[f"Relative Position Error (RPE)\n{delta_seconds}s windows"
-               ] = np.absolute(sync_gt_rel_X - rel_X.to_numpy())
-    evaluation['Absolute Position Error (APE)'] = np.absolute(
-        sync_gt_X - odom['X'].to_numpy()
+    evaluation['RPE'] = np.absolute(sync_gt_rel_X - rel_X.to_numpy())
+    evaluation.attrs['description']['RPE'] = (
+        f"Relative Position Error\n{delta_seconds}s windows"
         )
-    # TODO Position error with percentage of the total movement
+    evaluation.attrs['unit']['RPE'] = 'm'
+    # Absolute Position Error
+    evaluation['APE'] = np.absolute(sync_gt_X - odom['X'].to_numpy())
+    evaluation.attrs['description']['APE'] = 'Absolute Position Error'
+    evaluation.attrs['unit']['APE'] = 'm'
+    # Absolute Percentage Position Error
+    evaluation['APPE'] = evaluation['APE'] / odom['X'].to_numpy() * 100
+    evaluation.attrs['description']['APPE'] = (
+        'Absolute Percentage\nPosition Error'
+        )
+    evaluation.attrs['unit']['APPE'] = '%'
     return evaluation
