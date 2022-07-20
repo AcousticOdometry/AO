@@ -127,12 +127,40 @@ if __name__ == '__main__':
                 'hidden_size': 512,
                 },
             }
+        for seed in range(10, 13):
+            models_to_train[f"normalized-files-{seed}"] = {
+                'dataset': 'normalized-files',
+                'split_strategy': 'no-laptop',
+                'task': 'classification',
+                'boundaries': np.linspace(0.005, 0.065, 7),
+                'architecture': 'UnnormalizedCNN',
+                'conv1_filters': 64,
+                'conv1_size': 5,
+                'conv2_filters': 128,
+                'conv2_size': 5,
+                'hidden_size': 512,
+                'seed': seed
+                }
+        for seed in range(3, 6):
+            models_to_train[f"normalized-files-batchnorm-{seed}"] = {
+                'dataset': 'normalized-files',
+                'split_strategy': 'no-laptop',
+                'task': 'classification',
+                'boundaries': np.linspace(0.005, 0.065, 7),
+                'architecture': 'CNN',
+                'conv1_filters': 64,
+                'conv1_size': 5,
+                'conv2_filters': 128,
+                'conv2_size': 5,
+                'hidden_size': 512,
+                'seed': seed
+                }
     elif args.gpu == 1:
-        # Datasets 6 models
+        # Datasets 7 models
         models_to_train = {}
         for dataset in [
             'duration-5', 'duration-20', 'features-64', 'features-128',
-            'segment-100', 'segment-140'
+            'segment-100', 'segment-140', 'double-channel'
             ]:
             models_to_train[dataset] = {
                 'dataset': dataset,
