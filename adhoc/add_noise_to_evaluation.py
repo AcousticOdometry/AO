@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     for wav_file in wav_files:
         print(wav_file)
-        audio, sample_rate = _wave_read(wav_files[0])
+        audio, sample_rate = _wave_read(wav_file)
         noisy_audio = add_noise(audio)
         to = args.output / wav_file.name
         if to.exists():
