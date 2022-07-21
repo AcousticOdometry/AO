@@ -43,8 +43,12 @@ class AO:
             [1, len(self.extractors), self.num_features, self.num_frames],
             device=self.device,
             )
-        # TODO allocate with number of labels
-        self.prediction = torch.empty(6, device=self.device)
+        # ? is it really necessary ?
+        output_dim = getattr(self.model, output_dim, None)
+        if output_dim:
+            self.prediction = torch.empty(output_dim, device=self.device)
+        else:
+            self.prediction = torch.empty(1, device=self.device)
 
     def __str__(self) -> str:
         return self.name
@@ -60,7 +64,3 @@ class AO:
             self.update(samples)
         self.prediction = self.model(self.features)
         return self.prediction
-
-    def __call__(self, samples: np.ndarray):
-        self.predict(samples)
-        return self.prediction.argmax(1).sum().item()
