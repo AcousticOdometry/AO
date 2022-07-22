@@ -57,6 +57,7 @@ def odometry(
             corresponding to 'Absolute Translation Error', 'Absolute Position
             Error', and 'Relative Position Error' respectively.
     """
+    # TODO Align the odometry and ground truth data
     ts = odom.index.to_numpy()
     gt_ts = ground_truth.index.to_numpy()
     # Interpolate ground truth to estimation timestamps

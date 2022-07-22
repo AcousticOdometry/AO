@@ -31,7 +31,7 @@ def _wave_read(path: Path) -> Tuple[np.ndarray, int]:
             )
 
 
-def noise_snr(
+def add_white_noise(
     audio: np.ndarray,
     snr_linear: float,
     ) -> np.ndarray:
@@ -49,6 +49,28 @@ def noise_snr(
     # with np.errstate(invalid='ignore'):
     audio += (np.sqrt(noise_factor) * noise).astype(np.int16)
     return audio
+
+
+def add_white_noise_no_overflow(
+    audio: np.ndarray,
+    snr_linear: float,
+    ) -> np.ndarray:
+    # https://github.com/SuperKogito/pydiogment/blob/074543dc9483b450653f8a00c8279bf1eb873199/pydiogment/auga.py#L36
+    audio = audio.copy().astype(np.int64)
+    noise = np.random.randint(-100, 100, size=audio.shape, dtype=np.int64)
+    # ao.plot.signal(noise, 44100)
+    # plt.show()
+    # compute powers
+    noise_power = np.mean(np.power(noise, 2))
+    audio_power = np.mean(np.power(audio, 2))
+    # compute snr and scaling factor
+    noise_factor = (audio_power / noise_power) * (1 / snr_linear)
+    # add noise
+    # with np.errstate(invalid='ignore'):
+    audio += (np.sqrt(noise_factor) * noise).astype(np.int64)
+    # Clamp to 16-bit
+    ii16 = np.iinfo(np.int16)
+    return audio.clip(ii16.min, ii16.max).astype(np.int16)
 
 
 if __name__ == '__main__':
@@ -73,12 +95,18 @@ if __name__ == '__main__':
         raise ValueError(f"Output must be a directory not `{args.output}`")
     args.output.mkdir(parents=True, exist_ok=True)
 
-    add_noise = partial(noise_snr, snr_linear=args.snr)
+    add_noise = partial(add_white_noise, snr_linear=args.snr)
 
     for wav_file in wav_files:
         print(wav_file)
+        config = ao.io.yaml_load(wav_file.with_suffix('.yaml'))
         audio, sample_rate = _wave_read(wav_file)
-        noisy_audio = add_noise(audio)
+        if 'smartLav+ top' in config['name']:
+            noisy_audio = add_white_noise_no_overflow(
+                audio, snr_linear=args.snr
+                )
+        else:
+            noisy_audio = add_white_noise(audio, snr_linear=args.snr)
         to = args.output / wav_file.name
         if to.exists():
             to.unlink()
