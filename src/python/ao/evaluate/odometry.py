@@ -67,29 +67,29 @@ def odometry(
     # ! Hacky way to provide additional info in column names
     evaluation.attrs['description'] = {}
     evaluation.attrs['unit'] = {}
-    # Absolute Translation Error
+    # Absolute Trajectory Error
     evaluation['ATE'] = np.absolute(sync_gt_tx - odom['tx'].to_numpy())
     evaluation.attrs['description']['ATE'] = (
-        "Absolute Translation Error \n"
+        "Absolute Trajectory Error \n"
         f"{odom.index.to_series().diff().mean():.3f}s between estimations"
         )
     evaluation.attrs['unit']['ATE'] = 'm'
-    # Relative Position Error
+    # Relative Pose Error
     rel_X = odom['X'] - np.interp(ts - delta_seconds, ts, odom['X'])
     sync_gt_rel_X = sync_gt_X - np.interp(ts - delta_seconds, ts, sync_gt_X)
     evaluation['RPE'] = np.absolute(sync_gt_rel_X - rel_X.to_numpy())
     evaluation.attrs['description']['RPE'] = (
-        f"Relative Position Error\n{delta_seconds}s windows"
+        f"Relative Pose Error\n{delta_seconds}s windows"
         )
     evaluation.attrs['unit']['RPE'] = 'm'
-    # Absolute Position Error
+    # Absolute Pose Error
     evaluation['APE'] = np.absolute(sync_gt_X - odom['X'].to_numpy())
-    evaluation.attrs['description']['APE'] = 'Absolute Position Error'
+    evaluation.attrs['description']['APE'] = 'Absolute Pose Error'
     evaluation.attrs['unit']['APE'] = 'm'
-    # Absolute Percentage Position Error
+    # Absolute Percentage Pose Error
     evaluation['APPE'] = evaluation['APE'] / odom['X'].to_numpy() * 100
     evaluation.attrs['description']['APPE'] = (
-        'Absolute Percentage\nPosition Error'
+        'Absolute Percentage\nPose Error'
         )
     evaluation.attrs['unit']['APPE'] = '%'
     return evaluation
