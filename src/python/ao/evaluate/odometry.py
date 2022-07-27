@@ -87,7 +87,7 @@ def odometry(
     evaluation.attrs['description']['APE'] = 'Absolute Pose Error'
     evaluation.attrs['unit']['APE'] = 'm'
     # Absolute Percentage Pose Error
-    evaluation['APPE'] = evaluation['APE'] / odom['X'].to_numpy() * 100
+    evaluation['APPE'] = evaluation['APE'] / sync_gt_X * 100
     evaluation.attrs['description']['APPE'] = (
         'Absolute Percentage\nPose Error'
         )
