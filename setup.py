@@ -1,3 +1,17 @@
+"""Build setup
+
+Setup the build environment for a C++ python extension module with `vcpkg` as
+C++ package manager. It uses `scikit-build` to build the C++ extension module
+and `GitPython` to pull `vcpkg` when it is defined as a submodule (as it is
+recommended).
+
+It is recommended to set the package metadata in the file `pyproject.toml`
+minimizing the amount of package specific configuration in this file.
+
+Raises:
+    RuntimeError: If `vcpkg` is not a submodule of the repository.
+"""
+
 import json
 import sys
 
@@ -60,12 +74,9 @@ packages = find_packages(python_packages_root)
 # ! other packages have no direct access to compiled C++ code.
 
 setup(
-    # Python package information, can be edited
-    name=PROJECT_NAME,
-    version=PROJECT_VERSION_STRING,
-    description="A minimal C++ extension using pybind11 and vcpkg",
-    author="Andreu Gimenez",
-    license="MIT",
+    # Package metadata, comment out if it is provided in `pyproject.toml`.
+    # name=PROJECT_NAME, # Use the name defined in `vcpkg.json`
+    version=PROJECT_VERSION_STRING, # Set version from `vcpkg.json`
     # Python package information is defined above
     packages=packages,
     package_dir={"": python_packages_root},
@@ -79,15 +90,4 @@ setup(
         "-DBUILD_PYTHON_API=ON",
         "-DBUILD_TESTS=OFF",
         ],
-    # Extra setuptools keywords:
-    # https://setuptools.pypa.io/en/latest/userguide/keywords.html
-    install_requires=[
-        "requests", "numpy", "matplotlib", "pyyaml", "python-dotenv", "pandas",
-        "torch", "torchaudio", "pytorch-lightning", "torchmetrics", "librosa"
-        ],
-    python_requires=">=3.7",
-    # When adding `[test]` to your `pip install` command you can install the
-    # extra dependencies associated with testing. Example `pip install .[test]`
-    # https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies
-    extras_require={"test": ["pytest"]},
     )

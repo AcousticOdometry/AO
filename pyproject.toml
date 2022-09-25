@@ -7,8 +7,35 @@ requires = [
     "pybind11",
     "GitPython",
 ]
-
 build-backend = "setuptools.build_meta"
+
+[project]
+# https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+# https://peps.python.org/pep-0621/
+name = "acoustic-odometry"
+authors = [
+    { name = "Andreu Gimenez", email = "esdandreu@gmail.com" },
+]
+description = "Acoustic Odometry library"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+keywords = ["audio", "odometry", "slam", "robotics"]
+dynamic = ["version"] 
+dependencies = [
+    "requests", "numpy", "matplotlib", "pyyaml", "python-dotenv", "pandas",
+    "torch", "torchaudio", "pytorch-lightning", "torchmetrics", "librosa"
+]
+
+[project.urls]
+homepage = "https://github.com/AcousticOdometry/AO"
+repository = "https://github.com/AcousticOdometry/AO"
+
+[project.optional-dependencies]
+# When adding `[test]` to your `pip install` command you can install the extra
+# dependencies associated with testing. Example `pip install .[test]`
+# https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies
+test = ["pytest"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
