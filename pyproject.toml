@@ -24,7 +24,7 @@ keywords = ["audio", "odometry", "slam", "robotics"]
 dynamic = ["version"] 
 dependencies = [
     "requests", "numpy", "matplotlib", "pyyaml", "python-dotenv", "pandas",
-    "torch", "torchaudio", "pytorch-lightning", "torchmetrics", "librosa"
+    "torch", "torchaudio", "librosa"
 ]
 
 [project.urls]

@@ -2,12 +2,6 @@
 .DS_Store
 vcpkg_installed/
 /libtorch/
-gdrive_credentials.json
-/models/
-/datasets/
-/evaluation/
-/results/
-/discussion/
 
 /_*/
 

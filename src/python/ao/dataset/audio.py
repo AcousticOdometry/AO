@@ -1,7 +1,7 @@
 import ao
 import numpy as np
 
-from typing import List, Callable, Optional
+from typing import List
 
 
 def _frames(data: np.ndarray, length: int) -> List[np.ndarray]:

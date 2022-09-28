@@ -11,7 +11,10 @@ class AO:
     def __init__(
         self,
         name: str,
-        model_path: Path,
+        model_path: Path, # ? Why not give callable directly? agnostic to ML
+        # TODO model: Union[Path, Callable],
+        # TODO if Path ending in .pt, load pytorch model
+        # TODO if Path ending in .ckpt, load the lightning model
         extractors: List[ao.extractor.Extractor],
         num_frames: int,
         device: torch.device = torch.
@@ -64,3 +67,5 @@ class AO:
             self.update(samples)
         self.prediction = self.model(self.features)
         return self.prediction
+
+    # TODO AO should output motion estimation, not the model output.
