@@ -47,7 +47,7 @@ class AO:
             device=self.device,
             )
         # ? is it really necessary ?
-        output_dim = getattr(self.model, output_dim, None)
+        output_dim = getattr(self.model, 'output_dim', None)
         if output_dim:
             self.prediction = torch.empty(output_dim, device=self.device)
         else:
