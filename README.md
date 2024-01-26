@@ -34,9 +34,6 @@ from source dependencies that might as well be installed on the system. But
 this allows a fast development environment where adding or removing C++
 dependencies should be easy.
 
-### Test that the C++ code is working in the Python package
-TODO
-
 ## Setup
 ### Install the requirements
 Install [vcpkg](https://github.com/microsoft/vcpkg) requirements with the
